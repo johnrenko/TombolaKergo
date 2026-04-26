@@ -4,11 +4,14 @@ import { useQuery } from "convex/react";
 import { use, useMemo, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 
+type ResultSort = "lot" | "ticket";
+
 export default function PublicRafflePage({ params }: { params: Promise<{ publicSlug: string }> }) {
   const { publicSlug } = use(params);
   const publicRaffle = useQuery(api.raffles.getPublicRaffle, { publicSlug }) as any;
   const [input, setInput] = useState("");
   const [checkedNumber, setCheckedNumber] = useState<number | null>(null);
+  const [resultSort, setResultSort] = useState<ResultSort>("lot");
   const checkResult = useQuery(
     api.winners.checkNumber,
     checkedNumber === null ? "skip" : { publicSlug, number: checkedNumber }
@@ -19,8 +22,13 @@ export default function PublicRafflePage({ params }: { params: Promise<{ publicS
     const prizeById = new Map(publicRaffle.prizes.map((prize) => [prize._id, prize]));
     return publicRaffle.winners
       .map((winner) => ({ winner, prize: prizeById.get(winner.prizeId) }))
-      .sort((a, b) => a.winner.position - b.winner.position);
-  }, [publicRaffle]);
+      .sort((a, b) => {
+        if (resultSort === "ticket") {
+          return a.winner.winningNumber - b.winner.winningNumber;
+        }
+        return a.winner.position - b.winner.position;
+      });
+  }, [publicRaffle, resultSort]);
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -126,14 +134,21 @@ export default function PublicRafflePage({ params }: { params: Promise<{ publicS
               <div>
                 <h2 className="section-title">Résultats de la tombola</h2>
               </div>
+              <label className="sort-control">
+                <span className="muted">Trier par</span>
+                <select value={resultSort} onChange={(event) => setResultSort(event.target.value as ResultSort)}>
+                  <option value="lot">Numéro de lot</option>
+                  <option value="ticket">Numéro de ticket</option>
+                </select>
+              </label>
             </div>
             {rows.length === 0 ? (
               <p className="muted">Aucun résultat publié.</p>
             ) : (
               <div className="result-list">
-                {rows.map(({ winner, prize }, index) => (
+                {rows.map(({ winner, prize }) => (
                   <div className="result-row" key={winner._id}>
-                    <span className={`rank-dot ${index === 1 ? "silver" : index === 2 ? "bronze" : ""}`}>{winner.position}</span>
+                    <span className={`rank-dot ${winner.position === 2 ? "silver" : winner.position === 3 ? "bronze" : ""}`}>{winner.position}</span>
                     <span className="number-strong">{winner.winningNumber}</span>
                     <span className="prize-icon emoji">{prize?.emoji ?? "🎁"}</span>
                     <span>{prize?.name ?? "Lot"}</span>

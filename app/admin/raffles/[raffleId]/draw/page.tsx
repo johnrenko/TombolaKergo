@@ -8,6 +8,8 @@ import type { Id } from "../../../../../convex/_generated/dataModel";
 import { getAdminSessionToken } from "../../../../components/adminSession";
 import { formatDate, statusLabel } from "../../../../components/format";
 
+type ResultSort = "lot" | "ticket";
+
 export default function DrawPage({ params }: { params: Promise<{ raffleId: string }> }) {
   const { raffleId } = use(params);
   const typedRaffleId = raffleId as Id<"raffles">;
@@ -20,6 +22,7 @@ export default function DrawPage({ params }: { params: Promise<{ raffleId: strin
   const publishRaffle = useMutation(api.raffles.publishRaffle);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [resultSort, setResultSort] = useState<ResultSort>("lot");
 
   useEffect(() => {
     setSessionToken(getAdminSessionToken());
@@ -82,7 +85,12 @@ export default function DrawPage({ params }: { params: Promise<{ raffleId: strin
 
   const { raffle, prizes, winners } = adminRaffle;
   const prizeById = new Map<string, any>(prizes.map((prize: any) => [prize._id, prize]));
-  const sortedWinners = [...winners].sort((a, b) => a.position - b.position);
+  const sortedWinners = [...winners].sort((a, b) => {
+    if (resultSort === "ticket") {
+      return a.winningNumber - b.winningNumber;
+    }
+    return a.position - b.position;
+  });
 
   return (
     <main className="content stack">
@@ -158,16 +166,23 @@ export default function DrawPage({ params }: { params: Promise<{ raffleId: strin
             <h2 className="section-title">Résultats</h2>
             <p className="muted">Rang, numéro gagnant et lot attribué.</p>
           </div>
+          <label className="sort-control">
+            <span className="muted">Trier par</span>
+            <select value={resultSort} onChange={(event) => setResultSort(event.target.value as ResultSort)}>
+              <option value="lot">Numéro de lot</option>
+              <option value="ticket">Numéro de ticket</option>
+            </select>
+          </label>
         </div>
         {sortedWinners.length === 0 ? (
           <p className="muted">Aucun résultat pour le moment.</p>
         ) : (
           <div className="result-list">
-            {sortedWinners.map((winner, index) => {
+            {sortedWinners.map((winner) => {
               const prize = prizeById.get(winner.prizeId);
               return (
                 <div className="result-row" key={winner._id}>
-                  <span className={`rank-dot ${index === 1 ? "silver" : index === 2 ? "bronze" : ""}`}>{winner.position}</span>
+                  <span className={`rank-dot ${winner.position === 2 ? "silver" : winner.position === 3 ? "bronze" : ""}`}>{winner.position}</span>
                   <span className="number-strong">{winner.winningNumber}</span>
                   <span className="muted">→</span>
                   <span className="prize-icon emoji">{prize?.emoji ?? "🎁"}</span>

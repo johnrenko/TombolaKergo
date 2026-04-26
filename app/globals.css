@@ -540,6 +540,25 @@ code {
   gap: 10px;
 }
 
+.sort-control {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.sort-control select {
+  appearance: none;
+  background: white;
+  border: 1px solid #ccd2e3;
+  border-radius: 7px;
+  color: var(--foreground);
+  font: inherit;
+  font-size: 16px;
+  min-height: 36px;
+  padding: 0 32px 0 11px;
+}
+
 .add-prize-row {
   display: grid;
 }

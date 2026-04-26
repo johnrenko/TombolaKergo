@@ -29,6 +29,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const loginMutation = useMutation(api.auth.login);
   const logoutMutation = useMutation(api.auth.logout);
   const [sessionToken, setSessionTokenState] = useState("");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const me = useQuery(api.auth.me, sessionToken ? { sessionToken } : "skip");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,6 +37,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setSessionTokenState(getAdminSessionToken());
+    setMobileNavOpen(false);
   }, [pathname]);
 
   if (pathname.startsWith("/admin/signup") || pathname.startsWith("/admin/reset-password")) {
@@ -114,7 +116,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           <span className="brand-mark" aria-hidden="true" />
           <span>Tombola</span>
         </Link>
-        <button className="mobile-menu" type="button" aria-label="Ouvrir le menu">
+        <button
+          aria-expanded={mobileNavOpen}
+          aria-label="Ouvrir le menu"
+          className="mobile-menu"
+          type="button"
+          onClick={() => setMobileNavOpen((isOpen) => !isOpen)}
+        >
           ≡
         </button>
         <nav className="nav-list" aria-label="Navigation admin">
@@ -127,6 +135,18 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </Link>
           ))}
         </nav>
+        {mobileNavOpen ? (
+          <nav className="mobile-nav-panel" aria-label="Navigation mobile admin">
+            {nav.map(([icon, label, href]) => (
+              <Link className={pathname.startsWith(href) ? "active" : ""} href={href} key={label}>
+                <span className="nav-icon" aria-hidden="true">
+                  {icon}
+                </span>
+                {label}
+              </Link>
+            ))}
+          </nav>
+        ) : null}
       </aside>
       <section className="main-panel">
         <header className="topbar">
@@ -144,14 +164,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
         {children}
-        <nav className="bottom-nav" aria-label="Navigation mobile admin">
-          {nav.map(([icon, label, href]) => (
-            <Link className={pathname.startsWith(href) ? "active" : ""} href={href} key={label}>
-              <span>{icon}</span>
-              {label}
-            </Link>
-          ))}
-        </nav>
       </section>
     </div>
   );

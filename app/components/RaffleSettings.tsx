@@ -3,7 +3,7 @@
 import { useMutation, useQuery } from "convex/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { getAdminSessionToken } from "./adminSession";
@@ -128,6 +128,8 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
   const [prizes, setPrizes] = useState<PrizeDraft[]>(initialPrizes);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [saveButtonInView, setSaveButtonInView] = useState(true);
+  const saveButtonBarRef = useRef<HTMLDivElement>(null);
 
   const raffle = adminRaffle?.raffle;
   const locked = raffle?.status === "drawn" || raffle?.status === "published";
@@ -153,6 +155,24 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
       }))
     );
   }, [adminRaffle]);
+
+  useEffect(() => {
+    if (locked) {
+      setSaveButtonInView(true);
+      return;
+    }
+    const saveButtonBar = saveButtonBarRef.current;
+    if (!saveButtonBar || typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setSaveButtonInView(entry.isIntersecting);
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(saveButtonBar);
+    return () => observer.disconnect();
+  }, [adminRaffle, locked]);
 
   const availableNumbersCount = useMemo(() => {
     const excluded = new Set(parseExcludedNumbers(excludedNumbers));
@@ -273,20 +293,22 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
     <main className="content stack">
       <div className="card-header">
         <div>
-          <h1 className="page-title">← {mode === "create" ? "Créer une tombola" : title || "Modifier la tombola"}</h1>
+          <h1 className="page-title title-with-back">
+            <Link className="back-arrow" href="/admin/raffles" aria-label="Retour">
+              ←
+            </Link>
+            <span>{mode === "create" ? "Créer une tombola" : title || "Modifier la tombola"}</span>
+          </h1>
           <p className="muted">Configurez les paramètres et les lots de votre tombola.</p>
           {raffle ? <span className={`badge ${raffle.status}`}>{statusLabel(raffle.status)}</span> : null}
         </div>
-        <div className="admin-header-actions">
-          <Link className="button ghost" href="/admin/raffles">
-            Retour
-          </Link>
-          {raffleId ? (
+        {raffleId ? (
+          <div className="admin-header-actions">
             <Link className="button secondary" href={`/admin/raffles/${raffleId}/draw`}>
               Tirage
             </Link>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
       </div>
 
       {locked ? (
@@ -474,11 +496,17 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
         </section>
 
         {!locked ? (
-          <div className="sticky-save-bar">
+          <div className="sticky-save-bar" ref={saveButtonBarRef}>
             <button className="button primary" disabled={saving} type="submit">
               {saving ? "Enregistrement…" : "Enregistrer"}
             </button>
           </div>
+        ) : null}
+
+        {!locked && !saveButtonInView ? (
+          <button className="button primary floating-save-button" disabled={saving} type="submit">
+            {saving ? "Enregistrement…" : "Enregistrer"}
+          </button>
         ) : null}
       </form>
     </main>

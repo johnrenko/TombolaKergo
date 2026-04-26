@@ -115,7 +115,7 @@ test.describe("parcours admin", () => {
     await page.locator("a.button", { hasText: "Paramètres" }).click();
     await expect(page.getByRole("heading", { name: new RegExp(title) })).toBeVisible();
 
-    await page.getByRole("link", { name: "Retour" }).click();
+    await page.getByLabel("Retour").click();
     await expect(page.getByRole("heading", { name: "Tombolas" })).toBeVisible();
 
     const row = page.getByRole("row").filter({ hasText: title });

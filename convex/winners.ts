@@ -2,13 +2,7 @@ import { mutation, query } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
-
-function requireAdmin(adminPassword: string) {
-  const expected = process.env.ADMIN_PASSWORD || "admin";
-  if (adminPassword !== expected) {
-    throw new Error("Authentification admin invalide.");
-  }
-}
+import { requireAdmin, requireAdminSession, writeAudit } from "./auth";
 
 function randomInt(maxExclusive: number) {
   if (maxExclusive <= 0) {
@@ -42,9 +36,9 @@ async function listPrizes(ctx: MutationCtx, raffleId: Id<"raffles">) {
 }
 
 export const runDraw = mutation({
-  args: { raffleId: v.id("raffles"), adminPassword: v.string() },
-  handler: async (ctx, { raffleId, adminPassword }) => {
-    requireAdmin(adminPassword);
+  args: { raffleId: v.id("raffles"), sessionToken: v.string() },
+  handler: async (ctx, { raffleId, sessionToken }) => {
+    const actor = await requireAdminSession(ctx, sessionToken);
     const raffle = await ctx.db.get(raffleId);
     if (!raffle) {
       throw new Error("Tombola introuvable.");
@@ -94,12 +88,14 @@ export const runDraw = mutation({
     await ctx.db.insert("drawAudits", {
       raffleId,
       drawnAt: now,
+      drawnByUserId: actor._id,
       numberMinSnapshot: raffle.numberMin,
       numberMaxSnapshot: raffle.numberMax,
       excludedNumbersSnapshot: raffle.excludedNumbers,
       prizesSnapshot: orderedPrizes.map((prize) => ({
         id: prize._id,
         name: prize.name,
+        emoji: prize.emoji,
         description: prize.description,
         position: prize.position
       })),
@@ -118,12 +114,23 @@ export const runDraw = mutation({
       drawnAt: now,
       updatedAt: now
     });
+    await writeAudit(ctx, actor, {
+      action: "raffle.drawn",
+      entityType: "raffle",
+      entityId: raffleId,
+      summary: `${actor.email} a lancé le tirage de "${raffle.title}".`,
+      metadata: {
+        winnersCount: results.length,
+        algorithm: "web-crypto-fisher-yates-v1"
+      }
+    });
   }
 });
 
 export const listWinnersByRaffle = query({
-  args: { raffleId: v.id("raffles") },
-  handler: async (ctx, { raffleId }) => {
+  args: { raffleId: v.id("raffles"), sessionToken: v.string() },
+  handler: async (ctx, { raffleId, sessionToken }) => {
+    await requireAdmin(ctx, sessionToken);
     return await ctx.db.query("winners").withIndex("by_raffle", (q) => q.eq("raffleId", raffleId)).collect();
   }
 });
@@ -166,6 +173,7 @@ export const checkNumber = query({
       number,
       prize: {
         name: prize?.name ?? "Lot",
+        emoji: prize?.emoji ?? "🎁",
         description: prize?.description,
         position: prize?.position ?? winner.position
       }

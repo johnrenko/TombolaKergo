@@ -2,20 +2,28 @@
 
 import { useMutation, useQuery } from "convex/react";
 import Link from "next/link";
-import { use, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
-import { getAdminPassword } from "../../../../components/adminPassword";
+import { getAdminSessionToken } from "../../../../components/adminSession";
 import { formatDate, statusLabel } from "../../../../components/format";
 
 export default function DrawPage({ params }: { params: Promise<{ raffleId: string }> }) {
   const { raffleId } = use(params);
   const typedRaffleId = raffleId as Id<"raffles">;
-  const adminRaffle = useQuery(api.raffles.getAdminRaffle, { raffleId: typedRaffleId }) as any;
+  const [sessionToken, setSessionToken] = useState("");
+  const adminRaffle = useQuery(
+    api.raffles.getAdminRaffle,
+    sessionToken ? { raffleId: typedRaffleId, sessionToken } : "skip"
+  ) as any;
   const runDraw = useMutation(api.winners.runDraw);
   const publishRaffle = useMutation(api.raffles.publishRaffle);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setSessionToken(getAdminSessionToken());
+  }, []);
 
   const summary = useMemo(() => {
     if (!adminRaffle) return null;
@@ -36,7 +44,7 @@ export default function DrawPage({ params }: { params: Promise<{ raffleId: strin
     setError("");
     setBusy(true);
     try {
-      await runDraw({ raffleId: typedRaffleId, adminPassword: getAdminPassword() });
+      await runDraw({ raffleId: typedRaffleId, sessionToken: getAdminSessionToken() });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Impossible de lancer le tirage.");
     } finally {
@@ -48,7 +56,7 @@ export default function DrawPage({ params }: { params: Promise<{ raffleId: strin
     setError("");
     setBusy(true);
     try {
-      await publishRaffle({ raffleId: typedRaffleId, adminPassword: getAdminPassword() });
+      await publishRaffle({ raffleId: typedRaffleId, sessionToken: getAdminSessionToken() });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Impossible de publier les résultats.");
     } finally {
@@ -80,11 +88,11 @@ export default function DrawPage({ params }: { params: Promise<{ raffleId: strin
     <main className="content stack">
       <div className="card-header">
         <div>
-          <p className="eyebrow">Tirage au sort</p>
-          <h1 className="page-title">{raffle.title}</h1>
+          <h1 className="page-title">Tirage au sort</h1>
+          <p className="muted">Lancez le tirage au sort et découvrez les gagnants.</p>
           <span className={`badge ${raffle.status}`}>{statusLabel(raffle.status)}</span>
         </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <div className="admin-header-actions">
           <Link className="button ghost" href={`/admin/raffles/${raffleId}/settings`}>
             Paramètres
           </Link>
@@ -96,41 +104,39 @@ export default function DrawPage({ params }: { params: Promise<{ raffleId: strin
 
       {error ? <div className="error">{error}</div> : null}
 
-      <section className="grid-3">
-        <div className="card">
-          <p className="eyebrow">Disponibles</p>
-          <h2 className="page-title" style={{ fontSize: "2.1rem" }}>
-            {summary.available}
-          </h2>
-          <p className="muted">numéros éligibles</p>
+      <section className="card">
+        <div className="metric-grid">
+        <div className="metric-card">
+          <span className="soft-icon">▧</span>
+          <span className="metric-value">{summary.available}</span>
+          <strong>numéros</strong>
+          <p className="muted" style={{ margin: "6px 0 0" }}>Plage {raffle.numberMin} – {raffle.numberMax}</p>
         </div>
-        <div className="card">
-          <p className="eyebrow">Lots</p>
-          <h2 className="page-title" style={{ fontSize: "2.1rem" }}>
-            {summary.prizes}
-          </h2>
-          <p className="muted">lots à attribuer</p>
+        <div className="metric-card">
+          <span className="soft-icon" style={{ background: "#edf6ff", color: "#1971e8" }}>♙</span>
+          <span className="metric-value">{summary.prizes}</span>
+          <strong>lots</strong>
+          <p className="muted" style={{ margin: "6px 0 0" }}>À attribuer</p>
         </div>
-        <div className="card">
-          <p className="eyebrow">Exclus</p>
-          <h2 className="page-title" style={{ fontSize: "2.1rem" }}>
-            {summary.excluded}
-          </h2>
-          <p className={summary.conflict ? "error" : "success"} style={{ margin: 0 }}>
-            {summary.conflict ? "Conflit : pas assez de numéros." : "Aucun conflit détecté."}
-          </p>
+        <div className="metric-card">
+          <span className="soft-icon" style={{ background: "#eaf8ef", color: "#159455" }}>✓</span>
+          <span className="metric-value">{summary.conflict ? "!" : "0"}</span>
+          <strong>conflit</strong>
+          <p className="muted" style={{ margin: "6px 0 0" }}>{summary.conflict ? "À corriger" : "Tout est OK"}</p>
+        </div>
         </div>
       </section>
 
       {raffle.status === "draft" ? (
         <section className="card stack">
-          <h2 className="section-title">Lancer le tirage</h2>
-          <div className="notice">
-            Cette action attribuera un numéro gagnant à chaque lot. Le tirage ne pourra plus être modifié.
-          </div>
           <button className="button primary" disabled={busy || summary.conflict} onClick={draw} type="button">
-            {busy ? "Tirage en cours…" : "Lancer le tirage"}
+            ▷ {busy ? "Tirage en cours…" : "Lancer le tirage"}
           </button>
+          <div className="notice">
+            ⚠ <strong>Cette action est irréversible</strong>
+            <br />
+            Une fois les résultats publiés, ils seront verrouillés et ne pourront plus être modifiés.
+          </div>
         </section>
       ) : null}
 
@@ -138,8 +144,8 @@ export default function DrawPage({ params }: { params: Promise<{ raffleId: strin
         <section className="card stack">
           <h2 className="section-title">Résultats prêts</h2>
           <p className="muted">Tirage effectué le {formatDate(raffle.drawnAt)}. Les résultats ne sont pas encore publics.</p>
-          <button className="button primary" disabled={busy} onClick={publish} type="button">
-            {busy ? "Publication…" : "Publier les résultats"}
+          <button className="button secondary" disabled={busy} onClick={publish} type="button">
+            ⇧ {busy ? "Publication…" : "Publier les résultats"}
           </button>
         </section>
       ) : null}
@@ -156,30 +162,19 @@ export default function DrawPage({ params }: { params: Promise<{ raffleId: strin
         {sortedWinners.length === 0 ? (
           <p className="muted">Aucun résultat pour le moment.</p>
         ) : (
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Rang</th>
-                  <th>Numéro gagnant</th>
-                  <th>Lot gagné</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedWinners.map((winner) => {
-                  const prize = prizeById.get(winner.prizeId);
-                  return (
-                    <tr key={winner._id}>
-                      <td>{winner.position}</td>
-                      <td>
-                        <strong>{winner.winningNumber}</strong>
-                      </td>
-                      <td>{prize?.name ?? "Lot supprimé"}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="result-list">
+            {sortedWinners.map((winner, index) => {
+              const prize = prizeById.get(winner.prizeId);
+              return (
+                <div className="result-row" key={winner._id}>
+                  <span className={`rank-dot ${index === 1 ? "silver" : index === 2 ? "bronze" : ""}`}>{winner.position}</span>
+                  <span className="number-strong">{winner.winningNumber}</span>
+                  <span className="muted">→</span>
+                  <span className="prize-icon emoji">{prize?.emoji ?? "🎁"}</span>
+                  <span>{prize?.name ?? "Lot supprimé"}</span>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>

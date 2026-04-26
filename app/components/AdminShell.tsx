@@ -1,45 +1,71 @@
 "use client";
 
+import { useMutation, useQuery } from "convex/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { api } from "../../convex/_generated/api";
+import { clearAdminSessionToken, getAdminSessionToken, setAdminSessionToken } from "./adminSession";
 
 const nav = [
-  ["Dashboard", "/admin/raffles"],
-  ["Tombolas", "/admin/raffles"],
-  ["Lots", "/admin/raffles"],
-  ["Résultats", "/admin/raffles"],
-  ["Paramètres", "/admin/raffles"]
+  ["⌂", "Dashboard", "/admin/raffles"],
+  ["✦", "Tombolas", "/admin/raffles"],
+  ["□", "Lots", "/admin/raffles"],
+  ["▥", "Résultats", "/admin/raffles"],
+  ["☷", "Historique", "/admin/audit"],
+  ["⚙", "Invitations", "/admin/invites"]
 ] as const;
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [unlocked, setUnlocked] = useState(false);
+  const loginMutation = useMutation(api.auth.login);
+  const logoutMutation = useMutation(api.auth.logout);
+  const [sessionToken, setSessionTokenState] = useState("");
+  const me = useQuery(api.auth.me, sessionToken ? { sessionToken } : "skip");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const expectedPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    setUnlocked(window.localStorage.getItem("tombola-admin") === "ok");
-  }, []);
+    setSessionTokenState(getAdminSessionToken());
+  }, [pathname]);
 
-  function submit(event: React.FormEvent) {
+  if (pathname.startsWith("/admin/signup")) {
+    return <>{children}</>;
+  }
+
+  async function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (password && (!expectedPassword || password === expectedPassword)) {
-      window.localStorage.setItem("tombola-admin", "ok");
-      window.localStorage.setItem("tombola-admin-password", password);
-      setUnlocked(true);
+    setError("");
+    try {
+      const result = await loginMutation({ email, password });
+      setAdminSessionToken(result.sessionToken);
+      setSessionTokenState(result.sessionToken);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Connexion impossible.");
     }
   }
 
-  if (!unlocked) {
+  async function logout() {
+    if (sessionToken) {
+      await logoutMutation({ sessionToken });
+    }
+    clearAdminSessionToken();
+    setSessionTokenState("");
+  }
+
+  if (!sessionToken || me === null) {
     return (
       <main className="public-page">
         <form className="public-shell hero-card stack" onSubmit={submit}>
           <p className="eyebrow">Accès admin</p>
           <h1 className="page-title">Connexion administrateur</h1>
-          <p className="muted">
-            Authentification simple pour la V1. Définissez <code>ADMIN_PASSWORD</code> dans l’environnement Convex.
-          </p>
+          <p className="muted">Connectez-vous avec le compte créé depuis un lien d’invitation.</p>
+          {error ? <div className="error">{error}</div> : null}
+          <label className="field">
+            <span className="label">Email</span>
+            <input className="input" type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoFocus />
+          </label>
           <label className="field">
             <span className="label">Mot de passe</span>
             <input
@@ -47,13 +73,23 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              autoFocus
             />
           </label>
           <button className="button primary" type="submit">
             Se connecter
           </button>
+          <p className="muted">
+            Pas encore de compte ? Demandez un lien d’invitation à l’administrateur du projet.
+          </p>
         </form>
+      </main>
+    );
+  }
+
+  if (me === undefined) {
+    return (
+      <main className="public-page">
+        <section className="public-shell card">Chargement de la session…</section>
       </main>
     );
   }
@@ -62,12 +98,18 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     <div className="app-shell">
       <aside className="sidebar">
         <Link className="brand" href="/admin/raffles">
-          <span className="brand-mark">TK</span>
-          <span>Tombola Kergo</span>
+          <span className="brand-mark" aria-hidden="true" />
+          <span>Tombola</span>
         </Link>
+        <button className="mobile-menu" type="button" aria-label="Ouvrir le menu">
+          ≡
+        </button>
         <nav className="nav-list" aria-label="Navigation admin">
-          {nav.map(([label, href]) => (
+          {nav.map(([icon, label, href]) => (
             <Link className={`nav-item ${pathname.startsWith(href) ? "active" : ""}`} href={href} key={label}>
+              <span className="nav-icon" aria-hidden="true">
+                {icon}
+              </span>
               {label}
             </Link>
           ))}
@@ -76,16 +118,33 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       <section className="main-panel">
         <header className="topbar">
           <div>
-            <strong>Administration</strong>
+            <strong>Tombola</strong>
             <p className="muted" style={{ margin: "4px 0 0" }}>
               Préparation, tirage et publication des résultats.
             </p>
           </div>
-          <Link className="button secondary" href="/">
-            Page d’accueil
-          </Link>
+          <div className="admin-header-actions">
+            <span className="muted">{me.name}</span>
+            <button className="button secondary" type="button" onClick={logout}>
+              Déconnexion
+            </button>
+          </div>
         </header>
         {children}
+        <nav className="bottom-nav" aria-label="Navigation mobile admin">
+          <Link href="/admin/raffles">
+            <span>✦</span>
+            Tombolas
+          </Link>
+          <Link href="/admin/raffles">
+            <span>□</span>
+            Lots
+          </Link>
+          <Link href="/admin/raffles">
+            <span>▥</span>
+            Résultats
+          </Link>
+        </nav>
       </section>
     </div>
   );

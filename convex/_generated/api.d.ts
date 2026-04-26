@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as auth from "../auth.js";
 import type * as prizes from "../prizes.js";
 import type * as raffles from "../raffles.js";
 import type * as winners from "../winners.js";
@@ -19,6 +20,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  auth: typeof auth;
   prizes: typeof prizes;
   raffles: typeof raffles;
   winners: typeof winners;

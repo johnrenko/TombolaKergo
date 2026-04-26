@@ -2,18 +2,19 @@ import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
+import { requireAdmin, requireAdminSession, writeAudit } from "./auth";
 
 const prizeInput = v.object({
   name: v.string(),
+  emoji: v.optional(v.string()),
   description: v.optional(v.string()),
   position: v.number()
 });
 
-function requireAdmin(adminPassword: string) {
-  const expected = process.env.ADMIN_PASSWORD || "admin";
-  if (adminPassword !== expected) {
-    throw new Error("Authentification admin invalide.");
-  }
+const defaultPrizeEmoji = "🎁";
+
+function normalizeEmoji(value?: string) {
+  return value?.trim() || defaultPrizeEmoji;
 }
 
 function normalizeExcludedNumbers(values: number[], min: number, max: number) {
@@ -75,8 +76,9 @@ async function getWinners(ctx: DbCtx, raffleId: Id<"raffles">) {
 }
 
 export const listRaffles = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { sessionToken: v.string() },
+  handler: async (ctx, { sessionToken }) => {
+    await requireAdmin(ctx, sessionToken);
     const raffles = await ctx.db.query("raffles").collect();
     const rows = await Promise.all(
       raffles.map(async (raffle) => {
@@ -89,8 +91,9 @@ export const listRaffles = query({
 });
 
 export const getAdminRaffle = query({
-  args: { raffleId: v.id("raffles") },
-  handler: async (ctx, { raffleId }) => {
+  args: { raffleId: v.id("raffles"), sessionToken: v.string() },
+  handler: async (ctx, { raffleId, sessionToken }) => {
+    await requireAdmin(ctx, sessionToken);
     const raffle = await ctx.db.get(raffleId);
     if (!raffle) return null;
     const [prizes, winners] = await Promise.all([getPrizes(ctx, raffleId), getWinners(ctx, raffleId)]);
@@ -114,7 +117,7 @@ export const getPublicRaffle = query({
 
 export const createRaffle = mutation({
   args: {
-    adminPassword: v.string(),
+    sessionToken: v.string(),
     title: v.string(),
     numberMin: v.number(),
     numberMax: v.number(),
@@ -124,7 +127,7 @@ export const createRaffle = mutation({
     prizes: v.array(prizeInput)
   },
   handler: async (ctx, args) => {
-    requireAdmin(args.adminPassword);
+    const actor = await requireAdminSession(ctx, args.sessionToken);
     validateRaffleInput(args);
     const excludedNumbers = normalizeExcludedNumbers(args.excludedNumbers, args.numberMin, args.numberMax);
     const now = Date.now();
@@ -145,6 +148,7 @@ export const createRaffle = mutation({
       await ctx.db.insert("prizes", {
         raffleId,
         name: prize.name.trim(),
+        emoji: normalizeEmoji(prize.emoji),
         description: prize.description?.trim() || undefined,
         position: prize.position,
         createdAt: now,
@@ -153,13 +157,25 @@ export const createRaffle = mutation({
     }
 
     const raffle = await ctx.db.get(raffleId);
+    await writeAudit(ctx, actor, {
+      action: "raffle.created",
+      entityType: "raffle",
+      entityId: raffleId,
+      summary: `${actor.email} a créé la tombola "${args.title.trim()}".`,
+      metadata: {
+        title: args.title.trim(),
+        numberMin: args.numberMin,
+        numberMax: args.numberMax,
+        prizesCount: args.prizes.length
+      }
+    });
     return { raffleId, publicSlug: raffle?.publicSlug ?? "" };
   }
 });
 
 export const updateRaffle = mutation({
   args: {
-    adminPassword: v.string(),
+    sessionToken: v.string(),
     raffleId: v.id("raffles"),
     title: v.string(),
     numberMin: v.number(),
@@ -170,7 +186,7 @@ export const updateRaffle = mutation({
     prizes: v.array(prizeInput)
   },
   handler: async (ctx, args) => {
-    requireAdmin(args.adminPassword);
+    const actor = await requireAdminSession(ctx, args.sessionToken);
     const raffle = await ctx.db.get(args.raffleId);
     if (!raffle) {
       throw new Error("Tombola introuvable.");
@@ -200,19 +216,34 @@ export const updateRaffle = mutation({
       await ctx.db.insert("prizes", {
         raffleId: args.raffleId,
         name: prize.name.trim(),
+        emoji: normalizeEmoji(prize.emoji),
         description: prize.description?.trim() || undefined,
         position: prize.position,
         createdAt: now,
         updatedAt: now
       });
     }
+    await writeAudit(ctx, actor, {
+      action: "raffle.updated",
+      entityType: "raffle",
+      entityId: args.raffleId,
+      summary: `${actor.email} a modifié la tombola "${args.title.trim()}".`,
+      metadata: {
+        previousTitle: raffle.title,
+        title: args.title.trim(),
+        numberMin: args.numberMin,
+        numberMax: args.numberMax,
+        excludedNumbers,
+        prizesCount: args.prizes.length
+      }
+    });
   }
 });
 
 export const publishRaffle = mutation({
-  args: { raffleId: v.id("raffles"), adminPassword: v.string() },
-  handler: async (ctx, { raffleId, adminPassword }) => {
-    requireAdmin(adminPassword);
+  args: { raffleId: v.id("raffles"), sessionToken: v.string() },
+  handler: async (ctx, { raffleId, sessionToken }) => {
+    const actor = await requireAdminSession(ctx, sessionToken);
     const raffle = await ctx.db.get(raffleId);
     if (!raffle) {
       throw new Error("Tombola introuvable.");
@@ -225,6 +256,12 @@ export const publishRaffle = mutation({
       status: "published",
       publishedAt: Date.now(),
       updatedAt: Date.now()
+    });
+    await writeAudit(ctx, actor, {
+      action: "raffle.published",
+      entityType: "raffle",
+      entityId: raffleId,
+      summary: `${actor.email} a publié les résultats de "${raffle.title}".`
     });
   }
 });

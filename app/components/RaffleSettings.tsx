@@ -6,28 +6,118 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { getAdminPassword } from "./adminPassword";
+import { getAdminSessionToken } from "./adminSession";
 import { parseExcludedNumbers, statusLabel } from "./format";
 
 type PrizeDraft = {
   name: string;
+  emoji: string;
   description: string;
   position: number;
 };
 
 const initialPrizes: PrizeDraft[] = [
-  { name: "Vélo adulte", description: "", position: 1 },
-  { name: "Bon d’achat 50 €", description: "", position: 2 },
-  { name: "Panier garni", description: "", position: 3 }
+  { name: "Vélo adulte", emoji: "🚲", description: "", position: 1 },
+  { name: "Bon d’achat 50 €", emoji: "🏷️", description: "", position: 2 },
+  { name: "Panier garni", emoji: "🧺", description: "", position: 3 }
 ];
+
+const defaultPrizeEmoji = "🎁";
+const emojiChoices = ["🎁", "🚲", "🏷️", "🧺", "🏆", "🍾", "🎟️", "📚", "⚽", "🧸", "💐", "☕"];
+const prizeCsvHeader = "position,emoji,name,description";
+
+function escapeCsvCell(value: string | number) {
+  const text = String(value ?? "");
+  if (!/[",\n\r]/.test(text)) return text;
+  return `"${text.replaceAll('"', '""')}"`;
+}
+
+function serializePrizes(prizes: PrizeDraft[]) {
+  return [
+    prizeCsvHeader,
+    ...prizes.map((prize, index) =>
+      [index + 1, prize.emoji || defaultPrizeEmoji, prize.name, prize.description].map(escapeCsvCell).join(",")
+    )
+  ].join("\n");
+}
+
+function parseCsvRows(text: string) {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1];
+    if (char === '"' && inQuotes && next === '"') {
+      cell += '"';
+      index += 1;
+    } else if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === "," && !inQuotes) {
+      row.push(cell.trim());
+      cell = "";
+    } else if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && next === "\n") index += 1;
+      row.push(cell.trim());
+      if (row.some(Boolean)) rows.push(row);
+      row = [];
+      cell = "";
+    } else {
+      cell += char;
+    }
+  }
+  row.push(cell.trim());
+  if (row.some(Boolean)) rows.push(row);
+  return rows;
+}
+
+function parsePrizeCsv(text: string) {
+  const rows = parseCsvRows(text);
+  if (rows.length === 0) return [];
+  const firstRow = rows[0].map((cell) => cell.toLowerCase());
+  const hasHeader = firstRow.includes("name") || firstRow.includes("lot") || firstRow.includes("emoji");
+  const dataRows = hasHeader ? rows.slice(1) : rows;
+  const indexFor = (names: string[], fallback: number) => {
+    const index = firstRow.findIndex((cell) => names.includes(cell));
+    return hasHeader && index >= 0 ? index : fallback;
+  };
+  const positionIndex = indexFor(["position", "ordre", "rank"], 0);
+  const emojiIndex = indexFor(["emoji", "icone", "icône"], 1);
+  const nameIndex = indexFor(["name", "nom", "lot"], 2);
+  const descriptionIndex = indexFor(["description", "desc"], 3);
+
+  return dataRows
+    .map((row, index) => ({
+      position: Number(row[positionIndex]) || index + 1,
+      emoji: row[emojiIndex] || defaultPrizeEmoji,
+      name: row[nameIndex] || "",
+      description: row[descriptionIndex] || ""
+    }))
+    .filter((prize) => prize.name.trim())
+    .sort((a, b) => a.position - b.position)
+    .map((prize, index) => ({ ...prize, position: index + 1 }));
+}
+
+function downloadCsv(filename: string, contents: string) {
+  const blob = new Blob([contents], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; raffleId?: string }) {
   const router = useRouter();
   const createRaffle = useMutation(api.raffles.createRaffle);
   const updateRaffle = useMutation(api.raffles.updateRaffle);
+  const [sessionToken, setSessionToken] = useState("");
   const adminRaffle = useQuery(
     api.raffles.getAdminRaffle,
-    mode === "edit" && raffleId ? { raffleId: raffleId as Id<"raffles"> } : "skip"
+    mode === "edit" && raffleId && sessionToken ? { raffleId: raffleId as Id<"raffles">, sessionToken } : "skip"
   ) as any;
   const [title, setTitle] = useState("");
   const [numberMin, setNumberMin] = useState(1);
@@ -43,6 +133,10 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
   const locked = raffle?.status === "drawn" || raffle?.status === "published";
 
   useEffect(() => {
+    setSessionToken(getAdminSessionToken());
+  }, []);
+
+  useEffect(() => {
     if (!adminRaffle) return;
     setTitle(adminRaffle.raffle.title);
     setNumberMin(adminRaffle.raffle.numberMin);
@@ -53,6 +147,7 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
     setPrizes(
       adminRaffle.prizes.map((prize) => ({
         name: prize.name,
+        emoji: prize.emoji ?? defaultPrizeEmoji,
         description: prize.description ?? "",
         position: prize.position
       }))
@@ -73,11 +168,28 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
   }
 
   function addPrize() {
-    setPrizes((current) => [...current, { name: "", description: "", position: current.length + 1 }]);
+    setPrizes((current) => [...current, { name: "", emoji: defaultPrizeEmoji, description: "", position: current.length + 1 }]);
   }
 
   function removePrize(index: number) {
     setPrizes((current) => current.filter((_, itemIndex) => itemIndex !== index).map((prize, itemIndex) => ({ ...prize, position: itemIndex + 1 })));
+  }
+
+  async function importPrizes(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      const importedPrizes = parsePrizeCsv(await file.text());
+      if (importedPrizes.length === 0) {
+        setError("Le fichier ne contient aucun lot valide.");
+        return;
+      }
+      setPrizes(importedPrizes);
+      setError("");
+    } catch {
+      setError("Impossible de lire le fichier d’import. Utilisez le template CSV.");
+    }
   }
 
   async function save(event: React.FormEvent) {
@@ -98,7 +210,7 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
     setSaving(true);
     try {
       const payload = {
-        adminPassword: getAdminPassword(),
+        sessionToken: getAdminSessionToken(),
         title,
         numberMin,
         numberMax,
@@ -107,6 +219,7 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
         allowNumberLookup,
         prizes: prizes.map((prize, index) => ({
           name: prize.name,
+          emoji: prize.emoji || defaultPrizeEmoji,
           description: prize.description || undefined,
           position: index + 1
         }))
@@ -145,11 +258,11 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
     <main className="content stack">
       <div className="card-header">
         <div>
-          <p className="eyebrow">Paramètres</p>
-          <h1 className="page-title">{mode === "create" ? "Créer une tombola" : title || "Modifier la tombola"}</h1>
+          <h1 className="page-title">← {mode === "create" ? "Créer une tombola" : title || "Modifier la tombola"}</h1>
+          <p className="muted">Configurez les paramètres et les lots de votre tombola.</p>
           {raffle ? <span className={`badge ${raffle.status}`}>{statusLabel(raffle.status)}</span> : null}
         </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <div className="admin-header-actions">
           <Link className="button ghost" href="/admin/raffles">
             Retour
           </Link>
@@ -167,8 +280,7 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
       {error ? <div className="error">{error}</div> : null}
 
       <form className="stack" onSubmit={save}>
-        <section className="card stack">
-          <h2 className="section-title">Informations</h2>
+        <section className="card stack settings-card">
           <div className="form-grid">
             <label className="field full">
               <span className="label">Nom de la tombola</span>
@@ -184,20 +296,41 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
             </label>
             <label className="field full">
               <span className="label">Numéros exclus</span>
-              <input className="input" disabled={locked} value={excludedNumbers} onChange={(event) => setExcludedNumbers(event.target.value)} placeholder="13, 42, 99" />
-            </label>
-            <label className="field">
-              <span className="label">Afficher tous les gagnants</span>
-              <input disabled={locked} type="checkbox" checked={showPublicWinners} onChange={(event) => setShowPublicWinners(event.target.checked)} />
-            </label>
-            <label className="field">
-              <span className="label">Recherche par numéro</span>
-              <input disabled={locked} type="checkbox" checked={allowNumberLookup} onChange={(event) => setAllowNumberLookup(event.target.checked)} />
+              <div className="excluded-chip-row">
+                {parseExcludedNumbers(excludedNumbers).map((value) => (
+                  <span className="chip" key={value}>
+                    {value} ×
+                  </span>
+                ))}
+                <input
+                  disabled={locked}
+                  value={excludedNumbers}
+                  onChange={(event) => setExcludedNumbers(event.target.value)}
+                  placeholder="Ajouter un numéro"
+                  style={{ minWidth: 150, flex: 1, border: 0, outline: 0 }}
+                />
+              </div>
             </label>
           </div>
-          <p className="muted">
-            Numéros disponibles : <strong>{availableNumbersCount}</strong> pour <strong>{prizes.length}</strong> lots.
-          </p>
+          <h2 className="section-title">Affichage public</h2>
+          <label className="toggle-row">
+            <span className="soft-icon">♙</span>
+            <span>
+              <strong>Afficher tous les gagnants</strong>
+              <br />
+              <span className="muted">Rendre la liste des gagnants visible publiquement</span>
+            </span>
+            <input className="switch" disabled={locked} type="checkbox" checked={showPublicWinners} onChange={(event) => setShowPublicWinners(event.target.checked)} />
+          </label>
+          <label className="toggle-row">
+            <span className="soft-icon">⌕</span>
+            <span>
+              <strong>Recherche par numéro</strong>
+              <br />
+              <span className="muted">Permettre aux participants de vérifier leur numéro</span>
+            </span>
+            <input className="switch" disabled={locked} type="checkbox" checked={allowNumberLookup} onChange={(event) => setAllowNumberLookup(event.target.checked)} />
+          </label>
         </section>
 
         <section className="card stack">
@@ -210,28 +343,75 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
               Ajouter un lot
             </button>
           </div>
-          <div className="stack">
+          <div className="import-actions">
+            <button
+              className="button secondary"
+              disabled={locked}
+              type="button"
+              onClick={() =>
+                downloadCsv(
+                  "template-lots-tombola.csv",
+                  `${prizeCsvHeader}\n1,🎁,Nom du lot,Description optionnelle\n2,🎁,Autre lot,Description optionnelle`
+                )
+              }
+            >
+              Télécharger le template
+            </button>
+            <button
+              className="button secondary"
+              type="button"
+              onClick={() => downloadCsv("lots-tombola.csv", serializePrizes(prizes))}
+            >
+              Exporter les lots
+            </button>
+            <label className={`button secondary ${locked ? "disabled" : ""}`}>
+              Importer un CSV
+              <input accept=".csv,text/csv" disabled={locked} onChange={importPrizes} style={{ display: "none" }} type="file" />
+            </label>
+          </div>
+          <div className="lot-list">
             {prizes.map((prize, index) => (
-              <div className="card" key={index} style={{ boxShadow: "none" }}>
-                <div className="form-grid">
-                  <label className="field">
-                    <span className="label">Ordre</span>
-                    <input className="input" disabled value={index + 1} />
-                  </label>
-                  <label className="field">
-                    <span className="label">Nom du lot</span>
-                    <input className="input" disabled={locked} value={prize.name} onChange={(event) => updatePrize(index, { name: event.target.value })} required />
-                  </label>
-                  <label className="field full">
-                    <span className="label">Description optionnelle</span>
-                    <textarea className="textarea" disabled={locked} value={prize.description} onChange={(event) => updatePrize(index, { description: event.target.value })} />
-                  </label>
-                </div>
+              <div className="lot-row" key={index}>
+                <span className={`rank-dot ${index === 1 ? "silver" : index === 2 ? "bronze" : ""}`}>{index + 1}</span>
+                <label className="emoji-picker" aria-label={`Emoji du lot ${index + 1}`}>
+                  <span className="prize-icon emoji">{prize.emoji || defaultPrizeEmoji}</span>
+                  <select
+                    disabled={locked}
+                    value={prize.emoji || defaultPrizeEmoji}
+                    onChange={(event) => updatePrize(index, { emoji: event.target.value })}
+                  >
+                    {emojiChoices.map((emoji) => (
+                      <option key={emoji} value={emoji}>
+                        {emoji}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field" style={{ gap: 4 }}>
+                  <input
+                    aria-label={`Nom du lot ${index + 1}`}
+                    className="input"
+                    disabled={locked}
+                    value={prize.name}
+                    onChange={(event) => updatePrize(index, { name: event.target.value })}
+                    required
+                  />
+                  <input
+                    aria-label={`Description du lot ${index + 1}`}
+                    className="input"
+                    disabled={locked}
+                    value={prize.description}
+                    onChange={(event) => updatePrize(index, { description: event.target.value })}
+                    placeholder="Description optionnelle"
+                  />
+                </label>
                 {!locked ? (
-                  <button className="button danger" type="button" onClick={() => removePrize(index)} style={{ marginTop: 14 }}>
-                    Supprimer
+                  <button className="button ghost" type="button" onClick={() => removePrize(index)} style={{ minHeight: 34, padding: 0 }}>
+                    ⋮
                   </button>
-                ) : null}
+                ) : (
+                  <span>⋮</span>
+                )}
               </div>
             ))}
           </div>

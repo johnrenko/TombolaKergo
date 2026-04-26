@@ -2,11 +2,18 @@
 
 import { useQuery } from "convex/react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { api } from "../../../convex/_generated/api";
+import { getAdminSessionToken } from "../../components/adminSession";
 import { formatDate, statusLabel } from "../../components/format";
 
 export default function RafflesPage() {
-  const raffles = useQuery(api.raffles.listRaffles) as any[] | undefined;
+  const [sessionToken, setSessionToken] = useState("");
+  const raffles = useQuery(api.raffles.listRaffles, sessionToken ? { sessionToken } : "skip") as any[] | undefined;
+
+  useEffect(() => {
+    setSessionToken(getAdminSessionToken());
+  }, []);
 
   return (
     <main className="content stack">

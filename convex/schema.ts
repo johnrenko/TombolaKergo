@@ -21,9 +21,57 @@ export default defineSchema({
     .index("by_slug", ["publicSlug"])
     .index("by_status", ["status"]),
 
+  adminUsers: defineTable({
+    email: v.string(),
+    name: v.string(),
+    passwordHash: v.string(),
+    passwordSalt: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    lastLoginAt: v.optional(v.number())
+  }).index("by_email", ["email"]),
+
+  adminInvites: defineTable({
+    tokenHash: v.string(),
+    email: v.optional(v.string()),
+    name: v.optional(v.string()),
+    createdByUserId: v.optional(v.id("adminUsers")),
+    usedByUserId: v.optional(v.id("adminUsers")),
+    usedAt: v.optional(v.number()),
+    expiresAt: v.number(),
+    createdAt: v.number()
+  })
+    .index("by_tokenHash", ["tokenHash"])
+    .index("by_createdAt", ["createdAt"]),
+
+  adminSessions: defineTable({
+    tokenHash: v.string(),
+    userId: v.id("adminUsers"),
+    expiresAt: v.number(),
+    createdAt: v.number(),
+    lastSeenAt: v.number(),
+    revokedAt: v.optional(v.number())
+  })
+    .index("by_tokenHash", ["tokenHash"])
+    .index("by_user", ["userId"]),
+
+  auditLogs: defineTable({
+    actorUserId: v.optional(v.id("adminUsers")),
+    actorEmail: v.optional(v.string()),
+    action: v.string(),
+    entityType: v.string(),
+    entityId: v.optional(v.string()),
+    summary: v.string(),
+    metadata: v.optional(v.string()),
+    createdAt: v.number()
+  })
+    .index("by_createdAt", ["createdAt"])
+    .index("by_actor", ["actorUserId"]),
+
   prizes: defineTable({
     raffleId: v.id("raffles"),
     position: v.number(),
+    emoji: v.optional(v.string()),
     name: v.string(),
     description: v.optional(v.string()),
     createdAt: v.number(),
@@ -53,6 +101,7 @@ export default defineSchema({
       v.object({
         id: v.string(),
         name: v.string(),
+        emoji: v.optional(v.string()),
         description: v.optional(v.string()),
         position: v.number()
       })

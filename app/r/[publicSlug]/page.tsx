@@ -85,9 +85,11 @@ export default function PublicRafflePage({ params }: { params: Promise<{ publicS
                 <input
                   className="input"
                   inputMode="numeric"
+                  pattern="[0-9]*"
                   placeholder="Entrez votre numéro"
+                  type="text"
                   value={input}
-                  onChange={(event) => setInput(event.target.value)}
+                  onChange={(event) => setInput(event.target.value.replace(/\D/g, ""))}
                 />
                 <span className="muted" style={{ fontSize: "0.82rem" }}>Exemple : 142</span>
               </label>

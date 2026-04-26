@@ -313,6 +313,7 @@ code {
   border: 1px solid #ccd2e3;
   border-radius: 7px;
   color: var(--foreground);
+  font-size: 16px;
   min-height: 46px;
   outline: none;
   padding: 0 14px;

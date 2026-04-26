@@ -860,6 +860,16 @@ code {
   font-weight: 900;
 }
 
+.winner-contact {
+  display: block;
+  margin-top: 12px;
+}
+
+.winner-contact a {
+  color: #047857;
+  font-weight: 800;
+}
+
 .number-strong {
   color: var(--primary);
   font-size: 1.6rem;

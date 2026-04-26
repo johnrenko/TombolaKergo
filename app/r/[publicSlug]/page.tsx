@@ -124,6 +124,9 @@ export default function PublicRafflePage({ params }: { params: Promise<{ publicS
               <br />
               <strong style={{ display: "block", fontSize: "1.55rem", marginTop: 8 }}>{checkResult.prize.name}</strong>
               {checkResult.prize.description ? <span className="muted">{checkResult.prize.description}</span> : null}
+              <span className="winner-contact">
+                Contactez les organisateurs via <a href="mailto:contact@kermesse.com">contact@kermesse.com</a>
+              </span>
             </span>
           </div>
         ) : null}

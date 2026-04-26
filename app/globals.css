@@ -289,6 +289,12 @@ code {
   font-weight: 750;
 }
 
+.field-help {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
 .input,
 .textarea {
   background: white;
@@ -406,14 +412,12 @@ code {
 }
 
 .excluded-chip-row {
-  align-items: center;
-  border: 1px solid #ccd2e3;
-  border-radius: 7px;
+  align-items: flex-start;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  min-height: 46px;
-  padding: 7px 10px;
+  min-height: 30px;
+  padding-top: 2px;
 }
 
 .chip {
@@ -425,6 +429,29 @@ code {
   font-weight: 700;
   gap: 6px;
   padding: 6px 9px;
+}
+
+.chip-remove {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  color: #66708a;
+  display: inline-flex;
+  font-size: 1rem;
+  font-weight: 800;
+  height: 18px;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  width: 18px;
+}
+
+.chip-remove:hover,
+.chip-remove:focus-visible {
+  background: #dfe3ee;
+  color: #17203c;
+  outline: none;
 }
 
 .toggle-row {

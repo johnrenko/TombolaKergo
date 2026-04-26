@@ -162,6 +162,7 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
     }
     return Math.max(0, count);
   }, [excludedNumbers, numberMax, numberMin]);
+  const excludedNumbersList = useMemo(() => parseExcludedNumbers(excludedNumbers), [excludedNumbers]);
 
   function updatePrize(index: number, patch: Partial<PrizeDraft>) {
     setPrizes((current) => current.map((prize, itemIndex) => (itemIndex === index ? { ...prize, ...patch } : prize)));
@@ -173,6 +174,10 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
 
   function removePrize(index: number) {
     setPrizes((current) => current.filter((_, itemIndex) => itemIndex !== index).map((prize, itemIndex) => ({ ...prize, position: itemIndex + 1 })));
+  }
+
+  function removeExcludedNumber(numberToRemove: number) {
+    setExcludedNumbers(excludedNumbersList.filter((value) => value !== numberToRemove).join(", "));
   }
 
   async function importPrizes(event: React.ChangeEvent<HTMLInputElement>) {
@@ -296,19 +301,35 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
             </label>
             <label className="field full">
               <span className="label">Numéros exclus</span>
-              <div className="excluded-chip-row">
-                {parseExcludedNumbers(excludedNumbers).map((value) => (
-                  <span className="chip" key={value}>
-                    {value} ×
-                  </span>
-                ))}
-                <input
-                  disabled={locked}
-                  value={excludedNumbers}
-                  onChange={(event) => setExcludedNumbers(event.target.value)}
-                  placeholder="Ajouter un numéro"
-                  style={{ minWidth: 150, flex: 1, border: 0, outline: 0 }}
-                />
+              <span className="field-help">Ajoutez les numéros à retirer du tirage, séparés par une virgule ou un espace.</span>
+              <input
+                className="input"
+                disabled={locked}
+                inputMode="numeric"
+                value={excludedNumbers}
+                onChange={(event) => setExcludedNumbers(event.target.value)}
+                placeholder="Exemple : 12, 24, 108"
+              />
+              <div className="excluded-chip-row" aria-label="Numéros exclus saisis">
+                {excludedNumbersList.length > 0 ? (
+                  excludedNumbersList.map((value) => (
+                    <span className="chip" key={value}>
+                      {value}
+                      {!locked ? (
+                        <button
+                          aria-label={`Retirer le numéro ${value}`}
+                          className="chip-remove"
+                          type="button"
+                          onClick={() => removeExcludedNumber(value)}
+                        >
+                          ×
+                        </button>
+                      ) : null}
+                    </span>
+                  ))
+                ) : (
+                  <span className="muted empty-chip-copy">Aucun numéro exclu pour le moment.</span>
+                )}
               </div>
             </label>
           </div>

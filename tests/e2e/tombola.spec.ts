@@ -34,7 +34,7 @@ async function login(page: Page) {
 
 async function createRaffle(page: Page, title: string, numberMax = "4") {
   await login(page);
-  await page.getByRole("link", { name: "Créer une tombola" }).first().click();
+  await page.goto("/admin/raffles/new");
   await expect(page.getByRole("heading", { name: /Créer une tombola/ })).toBeVisible();
   await page.getByLabel("Nom de la tombola").fill(title);
   await page.getByLabel("Numéro minimum").fill("1");
@@ -56,7 +56,8 @@ async function createPublishedRaffle(page: Page, title: string) {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => window.localStorage.clear());
+  await page.goto("/");
+  await page.evaluate(() => window.localStorage.clear());
 });
 
 test.describe("auth admin", () => {
@@ -73,7 +74,7 @@ test.describe("auth admin", () => {
   test("génération d’invitation depuis l’admin et historique visible", async ({ page }) => {
     await login(page);
     await page.getByRole("link", { name: "Invitations" }).click();
-    await page.getByLabel("Email invité").fill(`invite-${Date.now()}@example.test`);
+    await page.getByLabel(/Email de l’invité/).fill(`invite-${Date.now()}@example.test`);
     await page.getByRole("button", { name: "Générer le lien" }).click();
     await expect(page.locator("input[readonly]")).toHaveValue(/\/admin\/signup\?token=/);
 

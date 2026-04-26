@@ -49,7 +49,7 @@ async function hashPassword(password: string, salt: string) {
 
 function assertPassword(password: string) {
   if (password.length < 10) {
-    throw new Error("Le mot de passe doit contenir au moins 10 caractères.");
+    throw new Error("Mot de passe trop court : utilisez au moins 10 caractères.");
   }
 }
 
@@ -160,7 +160,7 @@ export const createInvite = mutation({
     if (args.sessionToken) {
       actor = await requireAdminSession(ctx, args.sessionToken);
     } else if (args.adminSecret !== adminInviteSecret()) {
-      throw new Error("Secret de génération invalide.");
+      throw new Error("Secret d’invitation invalide.");
     }
 
     const token = randomToken();
@@ -203,7 +203,7 @@ export const acceptInvite = mutation({
       .withIndex("by_tokenHash", (q) => q.eq("tokenHash", tokenHash))
       .unique();
     if (!invite || invite.usedAt || invite.expiresAt < Date.now()) {
-      throw new Error("Lien d’invitation invalide ou expiré.");
+      throw new Error("Lien d’invitation expiré ou déjà utilisé.");
     }
 
     const email = normalizeEmail(invite.email || args.email);
@@ -248,11 +248,11 @@ export const login = mutation({
     const email = normalizeEmail(args.email);
     const user = await ctx.db.query("adminUsers").withIndex("by_email", (q) => q.eq("email", email)).unique();
     if (!user) {
-      throw new Error("Identifiants invalides.");
+      throw new Error("Identifiants invalides : aucun compte ne correspond à cet email et ce mot de passe.");
     }
     const passwordHash = await hashPassword(args.password, user.passwordSalt);
     if (passwordHash !== user.passwordHash) {
-      throw new Error("Identifiants invalides.");
+      throw new Error("Identifiants invalides : aucun compte ne correspond à cet email et ce mot de passe.");
     }
     await ctx.db.patch(user._id, { lastLoginAt: Date.now() });
     await writeAudit(ctx, { _id: user._id, email: user.email, name: user.name }, {

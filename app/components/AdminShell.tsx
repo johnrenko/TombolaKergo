@@ -16,6 +16,17 @@ const nav = [
   ["⚙", "Invitations", "/admin/invites"]
 ] as const;
 
+function loginErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  if (message.includes("Identifiants invalides")) {
+    return "Email ou mot de passe incorrect. Si vous n’avez pas encore de compte, ouvrez d’abord le lien d’invitation envoyé par l’administrateur.";
+  }
+  if (message.includes("Session admin invalide")) {
+    return "Votre session a expiré. Reconnectez-vous pour continuer.";
+  }
+  return message || "Connexion impossible pour le moment. Réessayez dans quelques instants.";
+}
+
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const loginMutation = useMutation(api.auth.login);
@@ -42,7 +53,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       setAdminSessionToken(result.sessionToken);
       setSessionTokenState(result.sessionToken);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Connexion impossible.");
+      setError(loginErrorMessage(err));
     }
   }
 
@@ -60,7 +71,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <form className="public-shell hero-card stack" onSubmit={submit}>
           <p className="eyebrow">Accès admin</p>
           <h1 className="page-title">Connexion administrateur</h1>
-          <p className="muted">Connectez-vous avec le compte créé depuis un lien d’invitation.</p>
+          <p className="muted">
+            Utilisez l’email et le mot de passe définis lors de la création de votre compte. Le premier compte se crée depuis un lien d’invitation.
+          </p>
           {error ? <div className="error">{error}</div> : null}
           <label className="field">
             <span className="label">Email</span>
@@ -79,7 +92,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             Se connecter
           </button>
           <p className="muted">
-            Pas encore de compte ? Demandez un lien d’invitation à l’administrateur du projet.
+            Pas encore de compte ? Générez ou demandez un lien d’invitation, puis ouvrez-le pour choisir vos identifiants.
           </p>
         </form>
       </main>

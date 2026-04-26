@@ -57,11 +57,6 @@ export default function PublicRafflePage({ params }: { params: Promise<{ publicS
             <span className="brand-mark" aria-hidden="true" />
             KergoTombo
           </span>
-          <span className="muted language-control">
-            <span aria-hidden="true">🌐</span>
-            <span>Français</span>
-            <span aria-hidden="true">⌄</span>
-          </span>
         </header>
 
         <div className="public-content stack">

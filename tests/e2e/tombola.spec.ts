@@ -5,6 +5,7 @@ import { api } from "../../convex/_generated/api";
 
 const adminSecret = process.env.E2E_ADMIN_INVITE_SECRET ?? "admin";
 const password = "admin-password-e2e";
+const resetPassword = "admin-password-reset-e2e";
 
 async function createAccount(page: Page) {
   const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL ?? "http://127.0.0.1:3210");
@@ -71,6 +72,28 @@ test.describe("auth admin", () => {
     await expect(page.getByRole("heading", { name: "Tombolas" })).toBeVisible();
   });
 
+  test("réinitialisation du mot de passe puis connexion avec le nouveau mot de passe", async ({ page }) => {
+    const account = await createAccount(page);
+
+    await page.goto("/admin/reset-password");
+    await page.getByLabel("Secret admin").fill(adminSecret);
+    await page.getByLabel("Email").fill(account.email);
+    await page.getByLabel("Nouveau mot de passe").fill(resetPassword);
+    await page.getByRole("button", { name: "Réinitialiser" }).click();
+    await expect(page.getByRole("status")).toContainText("Mot de passe réinitialisé");
+
+    await page.goto("/admin/raffles");
+    await expect(page.getByRole("heading", { name: "Connexion administrateur" })).toBeVisible();
+    await page.getByLabel("Email").fill(account.email);
+    await page.getByLabel("Mot de passe").fill(password);
+    await page.getByRole("button", { name: "Se connecter" }).click();
+    await expect(page.locator(".error")).toContainText("Mot de passe incorrect ou email inconnu");
+
+    await page.getByLabel("Mot de passe").fill(resetPassword);
+    await page.getByRole("button", { name: "Se connecter" }).click();
+    await expect(page.getByRole("heading", { name: "Tombolas" })).toBeVisible();
+  });
+
   test("génération d’invitation depuis l’admin et historique visible", async ({ page }) => {
     await login(page);
     await page.getByRole("link", { name: "Invitations" }).click();
@@ -94,9 +117,9 @@ test.describe("parcours admin", () => {
 
     await page.getByRole("link", { name: "Retour" }).click();
     await expect(page.getByRole("heading", { name: "Tombolas" })).toBeVisible();
-    await expect(page.getByText(title)).toBeVisible();
 
     const row = page.getByRole("row").filter({ hasText: title });
+    await expect(row).toBeVisible();
     await row.getByRole("link", { name: "Ouvrir" }).click();
     await expect(page.getByRole("heading", { name: new RegExp(title) })).toBeVisible();
   });
@@ -123,15 +146,15 @@ test.describe("parcours admin", () => {
     await page.getByLabel("Nom de la tombola").fill(title);
     await page.getByLabel("Numéro minimum").fill("1");
     await page.getByLabel("Numéro maximum").fill("6");
-    await page.getByPlaceholder("Ajouter un numéro").fill("1, 2, 3");
-    await expect(page.locator(".chip", { hasText: "1 ×" })).toBeVisible();
-    await expect(page.locator(".chip", { hasText: "2 ×" })).toBeVisible();
-    await expect(page.locator(".chip", { hasText: "3 ×" })).toBeVisible();
+    await page.getByRole("textbox", { name: /Numéros exclus/ }).fill("1, 2, 3");
+    await expect(page.getByRole("button", { name: "Retirer le numéro 1" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Retirer le numéro 2" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Retirer le numéro 3" })).toBeVisible();
     await page.getByRole("button", { name: /^Enregistrer$/ }).click();
     await expect(page.getByRole("heading", { name: "Tirage au sort" })).toBeVisible();
 
     await page.locator("a.button", { hasText: "Paramètres" }).click();
-    await expect(page.getByPlaceholder("Ajouter un numéro")).toHaveValue("1, 2, 3");
+    await expect(page.getByRole("textbox", { name: /Numéros exclus/ })).toHaveValue("1, 2, 3");
     await page.getByRole("link", { name: "Tirage" }).click();
     await page.getByRole("button", { name: /Lancer le tirage/ }).click();
     await expect(page.locator(".result-row")).toHaveCount(3);

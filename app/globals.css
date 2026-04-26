@@ -236,7 +236,7 @@ code {
   border: 0;
   border-radius: 8px;
   display: inline-flex;
-  font-weight: 800;
+  font-weight: 400;
   gap: 8px;
   justify-content: center;
   min-height: 46px;
@@ -255,7 +255,7 @@ code {
 }
 
 .lookup-card .button.primary {
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .button.secondary {
@@ -272,6 +272,18 @@ code {
 .button.danger {
   background: #fee4e2;
   color: var(--danger);
+}
+
+.text-link {
+  color: var(--primary);
+  display: inline-flex;
+  font-size: 0.86rem;
+  justify-self: start;
+  line-height: 1.3;
+}
+
+.text-link:hover {
+  text-decoration: underline;
 }
 
 .field {
@@ -321,6 +333,10 @@ code {
 
 .table-wrap {
   overflow-x: auto;
+}
+
+.raffle-card-list {
+  display: none;
 }
 
 .table {
@@ -402,9 +418,11 @@ code {
 }
 
 .admin-header-actions {
+  align-items: center;
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .settings-card {
@@ -521,6 +539,14 @@ code {
   gap: 10px;
 }
 
+.add-prize-row {
+  display: grid;
+}
+
+.add-prize-row .button {
+  width: 100%;
+}
+
 .button.disabled {
   cursor: not-allowed;
   opacity: 0.62;
@@ -555,7 +581,7 @@ code {
 }
 
 .lot-row {
-  grid-template-columns: 34px 42px minmax(0, 1fr) 24px;
+  grid-template-columns: 34px 28px 42px minmax(0, 1fr) 34px;
 }
 
 .result-row {
@@ -581,6 +607,46 @@ code {
   background: #ffe8d7;
   border-color: #ffc59e;
   color: #a85b1b;
+}
+
+.lot-order-controls {
+  display: grid;
+  gap: 4px;
+}
+
+.icon-button {
+  align-items: center;
+  border: 0;
+  border-radius: 7px;
+  display: inline-flex;
+  height: 30px;
+  justify-content: center;
+  padding: 0;
+  width: 30px;
+}
+
+.order-button {
+  background: #f2f4f7;
+  color: #4d5a73;
+  font-size: 0.82rem;
+  line-height: 1;
+}
+
+.delete-prize,
+.delete-prize-placeholder {
+  background: #fff1f0;
+  color: var(--danger);
+  font-size: 0.95rem;
+}
+
+.delete-prize-placeholder {
+  align-items: center;
+  border-radius: 7px;
+  display: inline-flex;
+  height: 30px;
+  justify-content: center;
+  opacity: 0.45;
+  width: 30px;
 }
 
 .prize-icon {
@@ -702,10 +768,14 @@ code {
 }
 
 .lookup-form {
-  align-items: center;
+  align-items: start;
   display: grid;
   gap: 12px;
   grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.lookup-card .button.primary {
+  box-shadow: none;
 }
 
 .winner-banner {
@@ -789,16 +859,87 @@ code {
   }
 
   .content {
-    padding: 24px 18px 86px;
+    max-width: none;
+    padding: 24px 18px 96px;
   }
 
   .card {
     border-radius: 10px;
-    padding: 16px;
+    padding: 14px;
   }
 
   .page-title {
-    font-size: 1.55rem;
+    font-size: 2rem;
+  }
+
+  .content > .card-header {
+    align-items: stretch;
+    display: grid;
+    gap: 18px;
+    margin-bottom: 6px;
+  }
+
+  .content > .card-header .button {
+    width: 100%;
+  }
+
+  .admin-table-view {
+    display: none;
+  }
+
+  .raffle-card-list {
+    display: grid;
+    gap: 12px;
+  }
+
+  .raffle-mobile-card {
+    border: 1px solid #e7eaf3;
+    border-radius: 10px;
+    display: grid;
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .raffle-mobile-card-header {
+    align-items: flex-start;
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+  }
+
+  .raffle-mobile-card-header .muted {
+    margin: 6px 0 0;
+    overflow-wrap: anywhere;
+  }
+
+  .raffle-mobile-meta {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 0;
+  }
+
+  .raffle-mobile-meta div {
+    border-top: 1px solid #edf0f5;
+    padding-top: 10px;
+  }
+
+  .raffle-mobile-meta dt {
+    color: #66708a;
+    font-size: 0.7rem;
+    font-weight: 750;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .raffle-mobile-meta dd {
+    color: #17203c;
+    font-weight: 650;
+    margin: 4px 0 0;
+  }
+
+  .raffle-mobile-card .button {
+    width: 100%;
   }
 
   .grid-2,
@@ -830,10 +971,10 @@ code {
   }
 
   .lot-row {
-    grid-template-columns: 32px 38px minmax(0, 1fr) 18px;
+    grid-template-columns: 32px 28px 38px minmax(0, 1fr) 30px;
+    gap: 9px;
   }
 
-  .admin-header-actions,
   .card-header .muted,
   .eyebrow {
     display: none;
@@ -862,7 +1003,7 @@ code {
     justify-items: center;
   }
 
-  .bottom-nav a:first-child {
+  .bottom-nav a.active {
     color: var(--primary);
   }
 

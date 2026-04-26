@@ -180,6 +180,16 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
     setExcludedNumbers(excludedNumbersList.filter((value) => value !== numberToRemove).join(", "));
   }
 
+  function movePrize(index: number, direction: -1 | 1) {
+    setPrizes((current) => {
+      const nextIndex = index + direction;
+      if (nextIndex < 0 || nextIndex >= current.length) return current;
+      const next = [...current];
+      [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+      return next.map((prize, itemIndex) => ({ ...prize, position: itemIndex + 1 }));
+    });
+  }
+
   async function importPrizes(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -360,9 +370,6 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
               <h2 className="section-title">Lots</h2>
               <p className="muted">L’ordre d’attribution suit la position de chaque lot.</p>
             </div>
-            <button className="button secondary" disabled={locked} type="button" onClick={addPrize}>
-              Ajouter un lot
-            </button>
           </div>
           <div className="import-actions">
             <button
@@ -394,6 +401,26 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
             {prizes.map((prize, index) => (
               <div className="lot-row" key={index}>
                 <span className={`rank-dot ${index === 1 ? "silver" : index === 2 ? "bronze" : ""}`}>{index + 1}</span>
+                <div className="lot-order-controls" aria-label={`Changer l’ordre du lot ${index + 1}`}>
+                  <button
+                    aria-label={`Monter le lot ${index + 1}`}
+                    className="icon-button order-button"
+                    disabled={locked || index === 0}
+                    type="button"
+                    onClick={() => movePrize(index, -1)}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    aria-label={`Descendre le lot ${index + 1}`}
+                    className="icon-button order-button"
+                    disabled={locked || index === prizes.length - 1}
+                    type="button"
+                    onClick={() => movePrize(index, 1)}
+                  >
+                    ↓
+                  </button>
+                </div>
                 <label className="emoji-picker" aria-label={`Emoji du lot ${index + 1}`}>
                   <span className="prize-icon emoji">{prize.emoji || defaultPrizeEmoji}</span>
                   <select
@@ -427,14 +454,22 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
                   />
                 </label>
                 {!locked ? (
-                  <button className="button ghost" type="button" onClick={() => removePrize(index)} style={{ minHeight: 34, padding: 0 }}>
-                    ⋮
+                  <button className="icon-button delete-prize" aria-label={`Supprimer le lot ${index + 1}`} type="button" onClick={() => removePrize(index)}>
+                    🗑
                   </button>
                 ) : (
-                  <span>⋮</span>
+                  <span className="delete-prize-placeholder" aria-hidden="true">
+                    🗑
+                  </span>
                 )}
               </div>
             ))}
+          </div>
+          <div className="add-prize-row">
+            <button className="button secondary" disabled={locked} type="button" onClick={addPrize}>
+              <span aria-hidden="true">+</span>
+              Ajouter un lot
+            </button>
           </div>
         </section>
 

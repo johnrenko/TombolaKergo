@@ -268,6 +268,46 @@ export const login = mutation({
   }
 });
 
+export const resetPassword = mutation({
+  args: {
+    adminSecret: v.string(),
+    email: v.string(),
+    password: v.string()
+  },
+  handler: async (ctx, args) => {
+    if (args.adminSecret !== adminInviteSecret()) {
+      throw new Error("Secret d’invitation invalide.");
+    }
+    assertPassword(args.password);
+    const email = normalizeEmail(args.email);
+    const user = await ctx.db.query("adminUsers").withIndex("by_email", (q) => q.eq("email", email)).unique();
+    if (!user) {
+      throw new Error("Aucun compte admin ne correspond à cet email.");
+    }
+
+    const now = Date.now();
+    const salt = randomToken(16);
+    await ctx.db.patch(user._id, {
+      passwordSalt: salt,
+      passwordHash: await hashPassword(args.password, salt),
+      updatedAt: now
+    });
+    const sessions = await ctx.db.query("adminSessions").withIndex("by_user", (q) => q.eq("userId", user._id)).collect();
+    for (const session of sessions) {
+      if (!session.revokedAt) {
+        await ctx.db.patch(session._id, { revokedAt: now });
+      }
+    }
+    await writeAudit(ctx, { _id: user._id, email: user.email, name: user.name }, {
+      action: "admin_user.password_reset",
+      entityType: "adminUser",
+      entityId: user._id,
+      summary: `Mot de passe admin réinitialisé pour ${email}.`
+    });
+    return { ok: true };
+  }
+});
+
 export const logout = mutation({
   args: { sessionToken: v.string() },
   handler: async (ctx, { sessionToken }) => {

@@ -8,18 +8,15 @@ import { api } from "../../convex/_generated/api";
 import { clearAdminSessionToken, getAdminSessionToken, setAdminSessionToken } from "./adminSession";
 
 const nav = [
-  ["⌂", "Dashboard", "/admin/raffles"],
   ["✦", "Tombolas", "/admin/raffles"],
-  ["□", "Lots", "/admin/raffles"],
-  ["▥", "Résultats", "/admin/raffles"],
   ["☷", "Historique", "/admin/audit"],
   ["⚙", "Invitations", "/admin/invites"]
 ] as const;
 
 function loginErrorMessage(error: unknown) {
-  const message = error instanceof Error ? error.message : "";
+  const message = error instanceof Error ? error.message : String(error ?? "");
   if (message.includes("Identifiants invalides")) {
-    return "Email ou mot de passe incorrect. Si vous n’avez pas encore de compte, ouvrez d’abord le lien d’invitation envoyé par l’administrateur.";
+    return "Mot de passe incorrect ou email inconnu.";
   }
   if (message.includes("Session admin invalide")) {
     return "Votre session a expiré. Reconnectez-vous pour continuer.";
@@ -41,7 +38,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     setSessionTokenState(getAdminSessionToken());
   }, [pathname]);
 
-  if (pathname.startsWith("/admin/signup")) {
+  if (pathname.startsWith("/admin/signup") || pathname.startsWith("/admin/reset-password")) {
     return <>{children}</>;
   }
 
@@ -74,7 +71,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           <p className="muted">
             Utilisez l’email et le mot de passe définis lors de la création de votre compte. Le premier compte se crée depuis un lien d’invitation.
           </p>
-          {error ? <div className="error">{error}</div> : null}
+          {error ? <div className="error" role="alert">{error}</div> : null}
           <label className="field">
             <span className="label">Email</span>
             <input className="input" type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoFocus />
@@ -87,6 +84,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
+            <Link className="text-link" href="/admin/reset-password">
+              Réinitialiser mon mot de passe
+            </Link>
           </label>
           <button className="button primary" type="submit">
             Se connecter
@@ -145,18 +145,12 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </header>
         {children}
         <nav className="bottom-nav" aria-label="Navigation mobile admin">
-          <Link href="/admin/raffles">
-            <span>✦</span>
-            Tombolas
-          </Link>
-          <Link href="/admin/raffles">
-            <span>□</span>
-            Lots
-          </Link>
-          <Link href="/admin/raffles">
-            <span>▥</span>
-            Résultats
-          </Link>
+          {nav.map(([icon, label, href]) => (
+            <Link className={pathname.startsWith(href) ? "active" : ""} href={href} key={label}>
+              <span>{icon}</span>
+              {label}
+            </Link>
+          ))}
         </nav>
       </section>
     </div>

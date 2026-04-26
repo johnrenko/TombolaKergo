@@ -474,9 +474,11 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
         </section>
 
         {!locked ? (
-          <button className="button primary" disabled={saving} type="submit">
-            {saving ? "Enregistrement…" : "Enregistrer"}
-          </button>
+          <div className="sticky-save-bar">
+            <button className="button primary" disabled={saving} type="submit">
+              {saving ? "Enregistrement…" : "Enregistrer"}
+            </button>
+          </div>
         ) : null}
       </form>
     </main>

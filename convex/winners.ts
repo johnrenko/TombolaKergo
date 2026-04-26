@@ -1,5 +1,7 @@
 import { mutation, query } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 
 function requireAdmin(adminPassword: string) {
   const expected = process.env.ADMIN_PASSWORD || "admin";
@@ -32,7 +34,7 @@ function secureShuffle(values: number[]) {
   return copy;
 }
 
-async function listPrizes(ctx: any, raffleId: any) {
+async function listPrizes(ctx: MutationCtx, raffleId: Id<"raffles">) {
   return await ctx.db
     .query("prizes")
     .withIndex("by_raffle_position", (q) => q.eq("raffleId", raffleId))

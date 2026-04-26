@@ -1,4 +1,5 @@
 import { mutation, query } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 
@@ -60,14 +61,16 @@ function slugify(value: string) {
   return `${base || "tombola"}-${Date.now().toString(36)}`;
 }
 
-async function getPrizes(ctx: any, raffleId: Id<"raffles">) {
+type DbCtx = QueryCtx | MutationCtx;
+
+async function getPrizes(ctx: DbCtx, raffleId: Id<"raffles">) {
   return await ctx.db
     .query("prizes")
     .withIndex("by_raffle_position", (q) => q.eq("raffleId", raffleId))
     .collect();
 }
 
-async function getWinners(ctx: any, raffleId: Id<"raffles">) {
+async function getWinners(ctx: DbCtx, raffleId: Id<"raffles">) {
   return await ctx.db.query("winners").withIndex("by_raffle", (q) => q.eq("raffleId", raffleId)).collect();
 }
 

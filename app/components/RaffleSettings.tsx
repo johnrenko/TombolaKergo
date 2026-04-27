@@ -114,6 +114,7 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
   const router = useRouter();
   const createRaffle = useMutation(api.raffles.createRaffle);
   const updateRaffle = useMutation(api.raffles.updateRaffle);
+  const updateRaffleContact = useMutation(api.raffles.updateRaffleContact);
   const [sessionToken, setSessionToken] = useState("");
   const adminRaffle = useQuery(
     api.raffles.getAdminRaffle,
@@ -123,11 +124,14 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
   const [numberMin, setNumberMin] = useState(1);
   const [numberMax, setNumberMax] = useState(500);
   const [excludedNumbers, setExcludedNumbers] = useState("");
+  const [contactEmail, setContactEmail] = useState("contact@kermesse.com");
+  const [contactPhone, setContactPhone] = useState("");
   const [showPublicWinners, setShowPublicWinners] = useState(true);
   const [allowNumberLookup, setAllowNumberLookup] = useState(true);
   const [prizes, setPrizes] = useState<PrizeDraft[]>(initialPrizes);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [savingContact, setSavingContact] = useState(false);
   const [saveButtonInView, setSaveButtonInView] = useState(true);
   const saveButtonBarRef = useRef<HTMLDivElement>(null);
 
@@ -144,6 +148,8 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
     setNumberMin(adminRaffle.raffle.numberMin);
     setNumberMax(adminRaffle.raffle.numberMax);
     setExcludedNumbers(adminRaffle.raffle.excludedNumbers.join(", "));
+    setContactEmail(adminRaffle.raffle.contactEmail ?? "contact@kermesse.com");
+    setContactPhone(adminRaffle.raffle.contactPhone ?? "");
     setShowPublicWinners(adminRaffle.raffle.showPublicWinners);
     setAllowNumberLookup(adminRaffle.raffle.allowNumberLookup);
     setPrizes(
@@ -227,9 +233,31 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
     }
   }
 
+  async function saveContact() {
+    if (!raffleId) return;
+    setError("");
+    setSavingContact(true);
+    try {
+      await updateRaffleContact({
+        sessionToken: getAdminSessionToken(),
+        raffleId: raffleId as Id<"raffles">,
+        contactEmail,
+        contactPhone: contactPhone || undefined
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Impossible d’enregistrer le contact.");
+    } finally {
+      setSavingContact(false);
+    }
+  }
+
   async function save(event: React.FormEvent) {
     event.preventDefault();
     setError("");
+    if (locked) {
+      await saveContact();
+      return;
+    }
     if (numberMin > numberMax) {
       setError("Le range est invalide : le numéro minimum doit être inférieur ou égal au maximum.");
       return;
@@ -250,6 +278,8 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
         numberMin,
         numberMax,
         excludedNumbers: parseExcludedNumbers(excludedNumbers),
+        contactEmail,
+        contactPhone: contactPhone || undefined,
         showPublicWinners,
         allowNumberLookup,
         prizes: prizes.map((prize, index) => ({
@@ -312,7 +342,7 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
       </div>
 
       {locked ? (
-        <div className="notice">Cette tombola a déjà été tirée. Les paramètres ne peuvent plus être modifiés.</div>
+        <div className="notice">Cette tombola a déjà été tirée. Les paramètres de tirage ne peuvent plus être modifiés, mais le contact public reste éditable.</div>
       ) : null}
       {error ? <div className="error">{error}</div> : null}
 
@@ -364,7 +394,24 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
                 )}
               </div>
             </label>
+            <label className="field">
+              <span className="label">Email de contact</span>
+              <span className="field-help">Affiché aux gagnants sur la page publique.</span>
+              <input className="input" type="email" value={contactEmail} onChange={(event) => setContactEmail(event.target.value)} required />
+            </label>
+            <label className="field">
+              <span className="label">Téléphone de contact</span>
+              <span className="field-help">Optionnel.</span>
+              <input className="input" type="tel" value={contactPhone} onChange={(event) => setContactPhone(event.target.value)} />
+            </label>
           </div>
+          {locked ? (
+            <div>
+              <button className="button primary" disabled={savingContact} type="button" onClick={saveContact}>
+                {savingContact ? "Enregistrement…" : "Enregistrer le contact"}
+              </button>
+            </div>
+          ) : null}
           <h2 className="section-title">Affichage public</h2>
           <label className="toggle-row">
             <span className="soft-icon">♙</span>

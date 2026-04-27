@@ -27,10 +27,25 @@ function normalizeExcludedNumbers(values: number[], min: number, max: number) {
   return unique;
 }
 
-function validateRaffleInput(args: { title: string; numberMin: number; numberMax: number; prizes: { name: string; position: number }[] }) {
+function normalizeContact(args: { contactEmail: string; contactPhone?: string }) {
+  const contactEmail = args.contactEmail.trim();
+  if (!contactEmail) {
+    throw new Error("L’email de contact est obligatoire.");
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+    throw new Error("L’email de contact est invalide.");
+  }
+  return {
+    contactEmail,
+    contactPhone: args.contactPhone?.trim() || undefined
+  };
+}
+
+function validateRaffleInput(args: { title: string; numberMin: number; numberMax: number; contactEmail: string; prizes: { name: string; position: number }[] }) {
   if (!args.title.trim()) {
     throw new Error("Le nom de la tombola est obligatoire.");
   }
+  normalizeContact(args);
   if (!Number.isInteger(args.numberMin) || !Number.isInteger(args.numberMax)) {
     throw new Error("La plage doit contenir des nombres entiers.");
   }
@@ -122,6 +137,8 @@ export const createRaffle = mutation({
     numberMin: v.number(),
     numberMax: v.number(),
     excludedNumbers: v.array(v.number()),
+    contactEmail: v.string(),
+    contactPhone: v.optional(v.string()),
     showPublicWinners: v.boolean(),
     allowNumberLookup: v.boolean(),
     prizes: v.array(prizeInput)
@@ -130,6 +147,7 @@ export const createRaffle = mutation({
     const actor = await requireAdminSession(ctx, args.sessionToken);
     validateRaffleInput(args);
     const excludedNumbers = normalizeExcludedNumbers(args.excludedNumbers, args.numberMin, args.numberMax);
+    const contact = normalizeContact(args);
     const now = Date.now();
     const raffleId = await ctx.db.insert("raffles", {
       title: args.title.trim(),
@@ -137,6 +155,7 @@ export const createRaffle = mutation({
       numberMin: args.numberMin,
       numberMax: args.numberMax,
       excludedNumbers,
+      ...contact,
       showPublicWinners: args.showPublicWinners,
       allowNumberLookup: args.allowNumberLookup,
       status: "draft",
@@ -166,6 +185,8 @@ export const createRaffle = mutation({
         title: args.title.trim(),
         numberMin: args.numberMin,
         numberMax: args.numberMax,
+        contactEmail: contact.contactEmail,
+        contactPhone: contact.contactPhone ?? null,
         prizesCount: args.prizes.length
       }
     });
@@ -181,6 +202,8 @@ export const updateRaffle = mutation({
     numberMin: v.number(),
     numberMax: v.number(),
     excludedNumbers: v.array(v.number()),
+    contactEmail: v.string(),
+    contactPhone: v.optional(v.string()),
     showPublicWinners: v.boolean(),
     allowNumberLookup: v.boolean(),
     prizes: v.array(prizeInput)
@@ -196,6 +219,7 @@ export const updateRaffle = mutation({
     }
     validateRaffleInput(args);
     const excludedNumbers = normalizeExcludedNumbers(args.excludedNumbers, args.numberMin, args.numberMax);
+    const contact = normalizeContact(args);
     const now = Date.now();
 
     await ctx.db.patch(args.raffleId, {
@@ -203,6 +227,7 @@ export const updateRaffle = mutation({
       numberMin: args.numberMin,
       numberMax: args.numberMax,
       excludedNumbers,
+      ...contact,
       showPublicWinners: args.showPublicWinners,
       allowNumberLookup: args.allowNumberLookup,
       updatedAt: now
@@ -234,7 +259,44 @@ export const updateRaffle = mutation({
         numberMin: args.numberMin,
         numberMax: args.numberMax,
         excludedNumbers,
+        contactEmail: contact.contactEmail,
+        contactPhone: contact.contactPhone ?? null,
         prizesCount: args.prizes.length
+      }
+    });
+  }
+});
+
+export const updateRaffleContact = mutation({
+  args: {
+    sessionToken: v.string(),
+    raffleId: v.id("raffles"),
+    contactEmail: v.string(),
+    contactPhone: v.optional(v.string())
+  },
+  handler: async (ctx, args) => {
+    const actor = await requireAdminSession(ctx, args.sessionToken);
+    const raffle = await ctx.db.get(args.raffleId);
+    if (!raffle) {
+      throw new Error("Tombola introuvable.");
+    }
+
+    const contact = normalizeContact(args);
+    const now = Date.now();
+    await ctx.db.patch(args.raffleId, {
+      ...contact,
+      updatedAt: now
+    });
+    await writeAudit(ctx, actor, {
+      action: "raffle.contact_updated",
+      entityType: "raffle",
+      entityId: args.raffleId,
+      summary: `${actor.email} a modifié le contact de "${raffle.title}".`,
+      metadata: {
+        previousContactEmail: raffle.contactEmail ?? null,
+        previousContactPhone: raffle.contactPhone ?? null,
+        contactEmail: contact.contactEmail,
+        contactPhone: contact.contactPhone ?? null
       }
     });
   }

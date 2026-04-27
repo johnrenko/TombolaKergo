@@ -337,7 +337,7 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
               <input
                 className="input"
                 disabled={locked}
-                inputMode="numeric"
+                inputMode="decimal"
                 value={excludedNumbers}
                 onChange={(event) => setExcludedNumbers(event.target.value)}
                 placeholder="Exemple : 12, 24, 108"

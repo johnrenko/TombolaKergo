@@ -40,7 +40,7 @@ async function createRaffle(page: Page, title: string, numberMax = "4") {
   await page.getByLabel("Nom de la tombola").fill(title);
   await page.getByLabel("Numéro minimum").fill("1");
   await page.getByLabel("Numéro maximum").fill(numberMax);
-  await page.getByRole("button", { name: /^Enregistrer$/ }).click();
+  await page.getByRole("button", { name: /^Enregistrer$/ }).first().click();
   await expect(page.getByRole("heading", { name: "Tirage au sort" })).toBeVisible();
   return page.url();
 }
@@ -130,12 +130,12 @@ test.describe("parcours admin", () => {
     await page.getByLabel("Nom de la tombola").fill(`E2E validation ${Date.now()}`);
     await page.getByLabel("Numéro minimum").fill("10");
     await page.getByLabel("Numéro maximum").fill("3");
-    await page.getByRole("button", { name: /^Enregistrer$/ }).click();
+    await page.getByRole("button", { name: /^Enregistrer$/ }).first().click();
     await expect(page.getByText("Le range est invalide")).toBeVisible();
 
     await page.getByLabel("Numéro minimum").fill("1");
     await page.getByLabel("Numéro maximum").fill("2");
-    await page.getByRole("button", { name: /^Enregistrer$/ }).click();
+    await page.getByRole("button", { name: /^Enregistrer$/ }).first().click();
     await expect(page.getByText("Il n’y a pas assez de numéros disponibles")).toBeVisible();
   });
 
@@ -146,11 +146,12 @@ test.describe("parcours admin", () => {
     await page.getByLabel("Nom de la tombola").fill(title);
     await page.getByLabel("Numéro minimum").fill("1");
     await page.getByLabel("Numéro maximum").fill("6");
+    await expect(page.getByRole("textbox", { name: /Numéros exclus/ })).toHaveAttribute("inputmode", "decimal");
     await page.getByRole("textbox", { name: /Numéros exclus/ }).fill("1, 2, 3");
     await expect(page.getByRole("button", { name: "Retirer le numéro 1" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Retirer le numéro 2" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Retirer le numéro 3" })).toBeVisible();
-    await page.getByRole("button", { name: /^Enregistrer$/ }).click();
+    await page.getByRole("button", { name: /^Enregistrer$/ }).first().click();
     await expect(page.getByRole("heading", { name: "Tirage au sort" })).toBeVisible();
 
     await page.locator("a.button", { hasText: "Paramètres" }).click();
@@ -197,7 +198,7 @@ test.describe("parcours admin", () => {
     await expect(page.locator(".prize-icon.emoji").filter({ hasText: "🎁" })).toBeVisible();
     await page.getByLabel("Numéro minimum").fill("1");
     await page.getByLabel("Numéro maximum").fill("2");
-    await page.getByRole("button", { name: /^Enregistrer$/ }).click();
+    await page.getByRole("button", { name: /^Enregistrer$/ }).first().click();
     await expect(page.getByRole("heading", { name: "Tirage au sort" })).toBeVisible();
     await page.locator("a.button", { hasText: "Paramètres" }).click();
     await expect(page.getByLabel("Nom du lot 1")).toHaveValue("Café premium");

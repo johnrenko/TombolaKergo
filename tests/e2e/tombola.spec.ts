@@ -191,6 +191,23 @@ test.describe("parcours admin", () => {
     await expect(page.getByRole("button", { name: "✓ Enregistré" }).first()).toBeDisabled();
   });
 
+  test("partage public: lien et QR code imprimable visibles dans les paramètres", async ({ page }) => {
+    const title = `E2E QR ${Date.now()}`;
+    await createRaffle(page, title);
+
+    await page.locator("a.button", { hasText: "Paramètres" }).click();
+    await expect(page.getByRole("heading", { name: "QR code public" })).toBeVisible();
+
+    const publicLinkInput = page.getByLabel("Lien public");
+    await expect(publicLinkInput).toHaveValue(/\/r\/.+/);
+    const publicUrl = await publicLinkInput.inputValue();
+    expect(new URL(publicUrl).pathname).toMatch(/^\/r\/.+/);
+
+    await expect(page.getByAltText("QR code de l’espace public")).toHaveAttribute("src", /^data:image\/png;base64,/);
+    await expect(page.getByRole("button", { name: "Imprimer le QR code" })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Partager" })).toBeVisible();
+  });
+
   test("import, export et sélection d'emoji pour les lots", async ({ page }, testInfo) => {
     const title = `E2E import ${Date.now()}`;
     const csvPath = path.join(testInfo.outputDir, "lots.csv");

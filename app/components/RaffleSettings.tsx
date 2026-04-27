@@ -3,6 +3,7 @@
 import { useMutation, useQuery } from "convex/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import QRCode from "qrcode";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -30,6 +31,10 @@ function escapeCsvCell(value: string | number) {
   const text = String(value ?? "");
   if (!/[",\n\r]/.test(text)) return text;
   return `"${text.replaceAll('"', '""')}"`;
+}
+
+function escapeHtml(value: string) {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }
 
 function serializePrizes(prizes: PrizeDraft[]) {
@@ -133,6 +138,153 @@ function serializeRaffleDraft(draft: {
       position: index + 1
     }))
   });
+}
+
+function PublicQrShare({ publicSlug, title }: { publicSlug: string; title: string }) {
+  const [origin, setOrigin] = useState("");
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  const [shareStatus, setShareStatus] = useState("");
+  const publicUrl = origin ? `${origin}/r/${publicSlug}` : `/r/${publicSlug}`;
+  const shareTitle = title.trim() || "Tombola";
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
+
+  useEffect(() => {
+    if (!origin) return;
+    let cancelled = false;
+    QRCode.toDataURL(publicUrl, {
+      errorCorrectionLevel: "M",
+      margin: 2,
+      width: 320,
+      color: {
+        dark: "#0d1533",
+        light: "#ffffff"
+      }
+    })
+      .then((dataUrl) => {
+        if (!cancelled) setQrDataUrl(dataUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setQrDataUrl("");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [origin, publicUrl]);
+
+  useEffect(() => {
+    if (!shareStatus) return;
+    const timeout = window.setTimeout(() => setShareStatus(""), 2600);
+    return () => window.clearTimeout(timeout);
+  }, [shareStatus]);
+
+  async function copyPublicUrl() {
+    if (!navigator.clipboard) {
+      setShareStatus("Copie indisponible sur ce navigateur.");
+      return;
+    }
+    await navigator.clipboard.writeText(publicUrl);
+    setShareStatus("Lien copié.");
+  }
+
+  async function sharePublicUrl() {
+    if (!navigator.share) {
+      await copyPublicUrl();
+      return;
+    }
+    try {
+      await navigator.share({
+        title: shareTitle,
+        text: `Accéder à l’espace public de la tombola ${shareTitle}`,
+        url: publicUrl
+      });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      setShareStatus("Partage indisponible.");
+    }
+  }
+
+  function printQrCode() {
+    if (!qrDataUrl) return;
+    const printWindow = window.open("", "print-public-qr", "width=720,height=860");
+    if (!printWindow) {
+      setShareStatus("Autorisez les fenêtres pop-up pour imprimer.");
+      return;
+    }
+    const safeTitle = escapeHtml(shareTitle);
+    const safePublicUrl = escapeHtml(publicUrl);
+    printWindow.document.write(`<!doctype html>
+      <html lang="fr">
+        <head>
+          <meta charset="utf-8" />
+          <title>QR code - ${safeTitle}</title>
+          <style>
+            * { box-sizing: border-box; }
+            body { align-items: center; display: flex; font-family: Avenir Next, Inter, Segoe UI, sans-serif; justify-content: center; margin: 0; min-height: 100vh; padding: 32px; color: #0d1533; }
+            main { text-align: center; width: min(100%, 520px); }
+            h1 { font-size: 32px; line-height: 1.1; margin: 0 0 10px; }
+            p { color: #4d5a73; font-size: 16px; margin: 0 0 24px; overflow-wrap: anywhere; }
+            img { border: 1px solid #d8deea; border-radius: 16px; display: block; margin: 0 auto 24px; max-width: 100%; padding: 18px; width: 360px; }
+            strong { display: block; font-size: 18px; margin-top: 10px; overflow-wrap: anywhere; }
+          </style>
+        </head>
+        <body>
+          <main>
+            <h1>${safeTitle}</h1>
+            <p>Scannez ce QR code pour ouvrir l’espace public de la tombola.</p>
+            <img alt="QR code de l’espace public" src="${qrDataUrl}" />
+            <strong>${safePublicUrl}</strong>
+          </main>
+          <script>
+            window.addEventListener("load", () => {
+              window.focus();
+              window.print();
+            });
+          </script>
+        </body>
+      </html>`);
+    printWindow.document.close();
+  }
+
+  return (
+    <section className="card stack public-share-card">
+      <div className="card-header">
+        <div>
+          <h2 className="section-title">QR code public</h2>
+          <p className="muted">Partagez l’espace public où les participants consultent la tombola.</p>
+        </div>
+      </div>
+      <div className="public-share-layout">
+        <div className="qr-preview" aria-label="QR code de l’espace public">
+          {qrDataUrl ? <img src={qrDataUrl} alt="QR code de l’espace public" /> : <span className="muted">Génération…</span>}
+        </div>
+        <div className="public-share-details">
+          <label className="field">
+            <span className="label">Lien public</span>
+            <input className="input" readOnly value={publicUrl} onFocus={(event) => event.target.select()} />
+          </label>
+          <div className="share-actions">
+            <button className="button secondary" type="button" onClick={copyPublicUrl}>
+              Copier le lien
+            </button>
+            <button className="button secondary" type="button" onClick={sharePublicUrl}>
+              Partager
+            </button>
+            <button className="button primary" disabled={!qrDataUrl} type="button" onClick={printQrCode}>
+              Imprimer le QR code
+            </button>
+          </div>
+          {shareStatus ? (
+            <div className="success compact-status" role="status">
+              {shareStatus}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </section>
+  );
 }
 
 export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; raffleId?: string }) {
@@ -386,6 +538,8 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
           {saveToast}
         </div>
       ) : null}
+
+      {raffle ? <PublicQrShare publicSlug={raffle.publicSlug} title={title} /> : null}
 
       <form className="stack" onSubmit={save}>
         <section className="card stack settings-card">

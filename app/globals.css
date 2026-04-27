@@ -1057,6 +1057,7 @@ code {
 .tirage-topbar {
   align-items: center;
   display: flex;
+  gap: 16px;
   justify-content: space-between;
   position: relative;
   z-index: 2;
@@ -1076,6 +1077,24 @@ code {
   font-weight: 850;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+.tirage-topbar-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.tirage-control {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  color: #fffaf0;
+  font-weight: 850;
+  min-height: 44px;
+  padding: 0 16px;
 }
 
 .tirage-close {
@@ -1264,6 +1283,40 @@ code {
 
 .tirage-progress span.done {
   background: #43bf8e;
+}
+
+.tirage-progress-compact {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 560px);
+  justify-content: center;
+  position: relative;
+  z-index: 2;
+}
+
+.tirage-progress-compact > span {
+  color: rgba(255, 250, 240, 0.82);
+  font-size: 0.86rem;
+  font-weight: 850;
+  min-width: 62px;
+  text-align: right;
+}
+
+.tirage-progress-compact > div {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  height: 10px;
+  overflow: hidden;
+  width: min(58vw, 560px);
+}
+
+.tirage-progress-compact i {
+  background: linear-gradient(90deg, #43bf8e, #f6c76f);
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+  transition: width 220ms ease;
 }
 
 .tirage-summary {

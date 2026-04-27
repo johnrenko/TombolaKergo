@@ -26,6 +26,17 @@ const speedDurations: Record<DrawSpeed, number> = {
   slow: 2600
 };
 
+const compactDrawThreshold = 20;
+
+function durationForPhase(phase: PresentationPhase, speed: DrawSpeed, totalRows: number) {
+  if (totalRows > compactDrawThreshold) {
+    if (phase === "lot") return speed === "slow" ? 900 : speed === "normal" ? 650 : 450;
+    if (phase === "burst") return 240;
+    return 620;
+  }
+  return phase === "lot" ? speedDurations[speed] : phase === "burst" ? 520 : 1250;
+}
+
 function orderedWinnersWithPrizes(prizes: any[], winners: any[]) {
   const prizeById = new Map<string, any>(prizes.map((prize: any) => [prize._id, prize]));
   return [...winners]
@@ -62,6 +73,8 @@ function DrawPresentation({
   const overlayRef = useRef<HTMLDivElement>(null);
   const activeRow = rows[index];
   const revealedRows = phase === "summary" ? rows : rows.slice(0, phase === "number" ? index + 1 : index);
+  const isCompactDraw = rows.length > compactDrawThreshold;
+  const progressValue = rows.length > 0 ? Math.min(100, Math.round((revealedRows.length / rows.length) * 100)) : 0;
   const publicUrl = origin ? `${origin}/r/${publicSlug}` : `/r/${publicSlug}`;
 
   useEffect(() => {
@@ -108,21 +121,31 @@ function DrawPresentation({
   useEffect(() => {
     if (!activeRow || phase === "summary") return;
     const speed = speeds[activeRow.prize?._id] ?? "normal";
-    const duration = phase === "lot" ? speedDurations[speed] : phase === "burst" ? 520 : 1250;
+    const duration = durationForPhase(phase, speed, rows.length);
     const timeout = window.setTimeout(() => {
-      if (phase === "lot") {
-        setPhase("burst");
-      } else if (phase === "burst") {
-        setPhase("number");
-      } else if (index + 1 >= rows.length) {
-        setPhase("summary");
-      } else {
-        setIndex((current) => current + 1);
-        setPhase("lot");
-      }
+      goToNextStep();
     }, duration);
     return () => window.clearTimeout(timeout);
   }, [activeRow, index, phase, rows.length, speeds]);
+
+  function goToNextStep() {
+    if (phase === "summary") return;
+    if (phase === "lot") {
+      setPhase("burst");
+    } else if (phase === "burst") {
+      setPhase("number");
+    } else if (index + 1 >= rows.length) {
+      setPhase("summary");
+    } else {
+      setIndex((current) => current + 1);
+      setPhase("lot");
+    }
+  }
+
+  function showSummary() {
+    setIndex(Math.max(0, rows.length - 1));
+    setPhase("summary");
+  }
 
   function replay() {
     setIndex(0);
@@ -148,9 +171,21 @@ function DrawPresentation({
             {!activeRow && phase !== "summary" ? "Préparation" : phase === "summary" ? "Tirage terminé" : `Lot ${activeRow.winner.position} sur ${rows.length}`}
           </strong>
         </div>
-        <button className="tirage-close" type="button" onClick={onClose} aria-label="Quitter le mode tirage">
-          ×
-        </button>
+        <div className="tirage-topbar-actions">
+          {activeRow && phase !== "summary" ? (
+            <>
+              <button className="tirage-control" type="button" onClick={goToNextStep}>
+                Suivant
+              </button>
+              <button className="tirage-control" type="button" onClick={showSummary}>
+                Résumé
+              </button>
+            </>
+          ) : null}
+          <button className="tirage-close" type="button" onClick={onClose} aria-label="Quitter le mode tirage">
+            ×
+          </button>
+        </div>
       </div>
 
       {showQrCode ? (
@@ -224,11 +259,20 @@ function DrawPresentation({
       )}
 
       {phase !== "summary" ? (
-        <div className="tirage-progress" aria-label="Lots révélés">
-          {rows.map(({ winner }, rowIndex) => (
-            <span className={rowIndex <= revealedRows.length - 1 ? "done" : rowIndex === index ? "active" : ""} key={winner._id} />
-          ))}
-        </div>
+        isCompactDraw ? (
+          <div className="tirage-progress-compact" aria-label="Lots révélés">
+            <span>{revealedRows.length}/{rows.length}</span>
+            <div>
+              <i style={{ width: `${progressValue}%` }} />
+            </div>
+          </div>
+        ) : (
+          <div className="tirage-progress" aria-label="Lots révélés">
+            {rows.map(({ winner }, rowIndex) => (
+              <span className={rowIndex <= revealedRows.length - 1 ? "done" : rowIndex === index ? "active" : ""} key={winner._id} />
+            ))}
+          </div>
+        )
       ) : null}
     </div>
   );

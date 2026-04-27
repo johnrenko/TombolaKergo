@@ -2,13 +2,179 @@
 
 import { useMutation, useQuery } from "convex/react";
 import Link from "next/link";
-import { use, useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
+import { use, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 import { getAdminSessionToken } from "../../../../components/adminSession";
 import { formatDate, statusLabel } from "../../../../components/format";
 
 type ResultSort = "lot" | "ticket";
+type DrawSpeed = "fast" | "normal" | "slow";
+type PresentationPhase = "lot" | "burst" | "number" | "summary";
+
+const speedLabels: Record<DrawSpeed, string> = {
+  fast: "Rapide",
+  normal: "Normal",
+  slow: "Lent"
+};
+
+const speedDurations: Record<DrawSpeed, number> = {
+  fast: 900,
+  normal: 1600,
+  slow: 2600
+};
+
+function orderedWinnersWithPrizes(prizes: any[], winners: any[]) {
+  const prizeById = new Map<string, any>(prizes.map((prize: any) => [prize._id, prize]));
+  return [...winners]
+    .sort((a, b) => b.position - a.position)
+    .map((winner) => ({ winner, prize: prizeById.get(winner.prizeId) }));
+}
+
+function DrawPresentation({
+  rows,
+  speeds,
+  onClose,
+  onReplay,
+  onPublish,
+  canPublish,
+  busy
+}: {
+  rows: { winner: any; prize: any }[];
+  speeds: Record<string, DrawSpeed>;
+  onClose: () => void;
+  onReplay: () => void;
+  onPublish: () => void;
+  canPublish: boolean;
+  busy: boolean;
+}) {
+  const [index, setIndex] = useState(0);
+  const [phase, setPhase] = useState<PresentationPhase>("lot");
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const activeRow = rows[index];
+  const revealedRows = phase === "summary" ? rows : rows.slice(0, phase === "number" ? index + 1 : index);
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [onClose]);
+
+  useEffect(() => {
+    overlayRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (!activeRow || phase === "summary") return;
+    const speed = speeds[activeRow.prize?._id] ?? "normal";
+    const duration = phase === "lot" ? speedDurations[speed] : phase === "burst" ? 520 : 1250;
+    const timeout = window.setTimeout(() => {
+      if (phase === "lot") {
+        setPhase("burst");
+      } else if (phase === "burst") {
+        setPhase("number");
+      } else if (index + 1 >= rows.length) {
+        setPhase("summary");
+      } else {
+        setIndex((current) => current + 1);
+        setPhase("lot");
+      }
+    }, duration);
+    return () => window.clearTimeout(timeout);
+  }, [activeRow, index, phase, rows.length, speeds]);
+
+  function replay() {
+    setIndex(0);
+    setPhase("lot");
+    onReplay();
+  }
+
+  return (
+    <div className="tirage-overlay" ref={overlayRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Mode tirage">
+      <div className="tirage-topbar">
+        <div>
+          <span className="tirage-kicker">Mode tirage</span>
+          <strong>
+            {!activeRow && phase !== "summary" ? "Préparation" : phase === "summary" ? "Tirage terminé" : `Lot ${activeRow.winner.position} sur ${rows.length}`}
+          </strong>
+        </div>
+        <button className="tirage-close" type="button" onClick={onClose} aria-label="Quitter le mode tirage">
+          ×
+        </button>
+      </div>
+
+      {!activeRow && phase !== "summary" ? (
+        <div className="tirage-preparing" role="status">
+          <span className="tirage-loader" aria-hidden="true" />
+          <h2>Préparation du tirage</h2>
+          <p>Les gagnants sont en cours d’attribution. L’animation démarre juste après.</p>
+        </div>
+      ) : phase === "summary" ? (
+        <div className="tirage-summary">
+          <h2>Gagnants</h2>
+          <div className="tirage-summary-grid">
+            {rows.map(({ winner, prize }) => (
+              <div className="tirage-summary-row" key={winner._id}>
+                <span>{winner.position}</span>
+                <strong>{winner.winningNumber}</strong>
+                <em>{prize?.emoji ?? "🎁"}</em>
+                <small>{prize?.name ?? "Lot supprimé"}</small>
+              </div>
+            ))}
+          </div>
+          <div className="tirage-summary-actions">
+            <button className="button secondary" type="button" onClick={replay}>
+              Rejouer le mode tirage
+            </button>
+            {canPublish ? (
+              <button className="button primary" disabled={busy} type="button" onClick={onPublish}>
+                {busy ? "Publication…" : "Publier les résultats"}
+              </button>
+            ) : null}
+            <button className="button ghost" type="button" onClick={onClose}>
+              Quitter
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className={`tirage-stage ${phase}`} data-phase={phase}>
+          <div className="tirage-prize">
+            <span className="tirage-emoji" aria-hidden="true">
+              {activeRow?.prize?.emoji ?? "🎁"}
+            </span>
+            <div>
+              <p>Lot {activeRow?.winner.position}</p>
+              <h2>{activeRow?.prize?.name ?? "Lot supprimé"}</h2>
+              {activeRow?.prize?.description ? <span>{activeRow.prize.description}</span> : null}
+            </div>
+          </div>
+          <div className="tirage-burst" aria-hidden="true">
+            {Array.from({ length: 16 }).map((_, burstIndex) => (
+              <i key={burstIndex} style={{ "--burst-rotate": `${burstIndex * 22.5}deg` } as CSSProperties} />
+            ))}
+          </div>
+          <div className="tirage-number" aria-live="polite">
+            <span>Numéro gagnant</span>
+            <strong>{activeRow?.winner.winningNumber}</strong>
+          </div>
+        </div>
+      )}
+
+      {phase !== "summary" ? (
+        <div className="tirage-progress" aria-label="Lots révélés">
+          {rows.map(({ winner }, rowIndex) => (
+            <span className={rowIndex <= revealedRows.length - 1 ? "done" : rowIndex === index ? "active" : ""} key={winner._id} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export default function DrawPage({ params }: { params: Promise<{ raffleId: string }> }) {
   const { raffleId } = use(params);
@@ -23,10 +189,37 @@ export default function DrawPage({ params }: { params: Promise<{ raffleId: strin
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [resultSort, setResultSort] = useState<ResultSort>("lot");
+  const [presentationActive, setPresentationActive] = useState(false);
+  const [presentationPending, setPresentationPending] = useState(false);
+  const [confirmPresentation, setConfirmPresentation] = useState(false);
+  const [prizeSpeeds, setPrizeSpeeds] = useState<Record<string, DrawSpeed>>({});
+  const [rangeStart, setRangeStart] = useState(1);
+  const [rangeEnd, setRangeEnd] = useState(1);
+  const [rangeSpeed, setRangeSpeed] = useState<DrawSpeed>("normal");
 
   useEffect(() => {
     setSessionToken(getAdminSessionToken());
   }, []);
+
+  useEffect(() => {
+    if (!adminRaffle) return;
+    const maxPosition = Math.max(1, ...adminRaffle.prizes.map((prize: any) => prize.position));
+    setRangeEnd((current) => (current === 1 ? maxPosition : Math.min(Math.max(current, 1), maxPosition)));
+    setPrizeSpeeds((current) => {
+      const next = { ...current };
+      for (const prize of adminRaffle.prizes) {
+        if (!next[prize._id]) next[prize._id] = "normal";
+      }
+      return next;
+    });
+  }, [adminRaffle]);
+
+  useEffect(() => {
+    if (presentationPending && adminRaffle?.winners.length > 0) {
+      setPresentationPending(false);
+      setPresentationActive(true);
+    }
+  }, [adminRaffle, presentationPending]);
 
   const summary = useMemo(() => {
     if (!adminRaffle) return null;
@@ -53,6 +246,53 @@ export default function DrawPage({ params }: { params: Promise<{ raffleId: strin
     } finally {
       setBusy(false);
     }
+  }
+
+  function applyRangeSpeed() {
+    const min = Math.min(rangeStart, rangeEnd);
+    const max = Math.max(rangeStart, rangeEnd);
+    setPrizeSpeeds((current) => {
+      const next = { ...current };
+      for (const prize of prizes) {
+        if (prize.position >= min && prize.position <= max) {
+          next[prize._id] = rangeSpeed;
+        }
+      }
+      return next;
+    });
+  }
+
+  async function startPresentation() {
+    setError("");
+    if (raffle.status === "drawn" && winners.length > 0) {
+      setPresentationActive(true);
+      return;
+    }
+    if (raffle.status !== "draft") return;
+    setConfirmPresentation(true);
+  }
+
+  async function confirmStartPresentation() {
+    setError("");
+    setConfirmPresentation(false);
+    setPresentationActive(true);
+    setBusy(true);
+    setPresentationPending(true);
+    try {
+      await runDraw({ raffleId: typedRaffleId, sessionToken: getAdminSessionToken() });
+    } catch (err) {
+      setPresentationPending(false);
+      setPresentationActive(false);
+      setError(err instanceof Error ? err.message : "Impossible de lancer le tirage.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function closePresentation() {
+    setPresentationActive(false);
+    setPresentationPending(false);
+    setConfirmPresentation(false);
   }
 
   async function publish() {
@@ -85,6 +325,8 @@ export default function DrawPage({ params }: { params: Promise<{ raffleId: strin
 
   const { raffle, prizes, winners } = adminRaffle;
   const prizeById = new Map<string, any>(prizes.map((prize: any) => [prize._id, prize]));
+  const presentationRows = orderedWinnersWithPrizes(prizes, winners);
+  const canUsePresentation = raffle.status === "draft" || (raffle.status === "drawn" && winners.length > 0);
   const sortedWinners = [...winners].sort((a, b) => {
     if (resultSort === "ticket") {
       return a.winningNumber - b.winningNumber;
@@ -94,6 +336,18 @@ export default function DrawPage({ params }: { params: Promise<{ raffleId: strin
 
   return (
     <main className="content stack">
+      {presentationActive ? (
+        <DrawPresentation
+          rows={presentationRows}
+          speeds={prizeSpeeds}
+          onClose={closePresentation}
+          onReplay={() => undefined}
+          onPublish={publish}
+          canPublish={raffle.status === "drawn"}
+          busy={busy}
+        />
+      ) : null}
+
       <div className="card-header">
         <div>
           <h1 className="page-title">Tirage au sort</h1>
@@ -114,26 +368,121 @@ export default function DrawPage({ params }: { params: Promise<{ raffleId: strin
 
       <section className="card">
         <div className="metric-grid">
-        <div className="metric-card">
-          <span className="soft-icon">▧</span>
-          <span className="metric-value">{summary.available}</span>
-          <strong>numéros</strong>
-          <p className="muted" style={{ margin: "6px 0 0" }}>Plage {raffle.numberMin} – {raffle.numberMax}</p>
-        </div>
-        <div className="metric-card">
-          <span className="soft-icon" style={{ background: "#edf6ff", color: "#1971e8" }}>♙</span>
-          <span className="metric-value">{summary.prizes}</span>
-          <strong>lots</strong>
-          <p className="muted" style={{ margin: "6px 0 0" }}>À attribuer</p>
-        </div>
-        <div className="metric-card">
-          <span className="soft-icon" style={{ background: "#eaf8ef", color: "#159455" }}>✓</span>
-          <span className="metric-value">{summary.conflict ? "!" : "0"}</span>
-          <strong>conflit</strong>
-          <p className="muted" style={{ margin: "6px 0 0" }}>{summary.conflict ? "À corriger" : "Tout est OK"}</p>
-        </div>
+          <div className="metric-card">
+            <span className="soft-icon">▧</span>
+            <span className="metric-value">{summary.available}</span>
+            <strong>numéros éligibles</strong>
+            <p className="muted" style={{ margin: "6px 0 0" }}>Plage {raffle.numberMin} – {raffle.numberMax}</p>
+          </div>
+          <div className="metric-card">
+            <span className="soft-icon" style={{ background: "#edf6ff", color: "#1971e8" }}>♙</span>
+            <span className="metric-value">{summary.prizes}</span>
+            <strong>lots à tirer</strong>
+            <p className="muted" style={{ margin: "6px 0 0" }}>Un gagnant par lot</p>
+          </div>
+          <div className="metric-card">
+            <span className="soft-icon" style={{ background: summary.conflict ? "#fff1f0" : "#eaf8ef", color: summary.conflict ? "#b42318" : "#159455" }}>
+              {summary.conflict ? "!" : "✓"}
+            </span>
+            <span className="metric-value">{summary.conflict ? "Non" : "Oui"}</span>
+            <strong>Tirage possible</strong>
+            <p className="muted" style={{ margin: "6px 0 0" }}>{summary.conflict ? "Pas assez de numéros" : "Assez de numéros"}</p>
+          </div>
         </div>
       </section>
+
+      {canUsePresentation ? (
+        <section className="card stack">
+          <div className="card-header">
+            <div>
+              <h2 className="section-title">Mode tirage</h2>
+              <p className="muted">Présentez les lots en plein écran, puis révélez chaque numéro gagnant.</p>
+            </div>
+            <button className="button primary" disabled={busy || summary.conflict || presentationPending} onClick={startPresentation} type="button">
+              ▷ {busy && presentationPending ? "Préparation…" : raffle.status === "draft" ? "Lancer le mode tirage" : "Rejouer le mode tirage"}
+            </button>
+          </div>
+          {confirmPresentation ? (
+            <div className="tirage-confirm" role="alert">
+              <div>
+                <strong>Êtes-vous sûr ?</strong>
+                <p>Cette action va faire le tirage et attribuer un numéro gagnant à chaque lot. Le tirage ne pourra plus être modifié.</p>
+              </div>
+              <div className="tirage-confirm-actions">
+                <button className="button ghost" type="button" onClick={() => setConfirmPresentation(false)}>
+                  Annuler
+                </button>
+                <button className="button primary" disabled={busy || summary.conflict} type="button" onClick={confirmStartPresentation}>
+                  Confirmer le tirage
+                </button>
+              </div>
+            </div>
+          ) : null}
+          <div className="tirage-range-tool" aria-label="Appliquer une vitesse à une plage de lots">
+            <span>Lots</span>
+            <label>
+              <span>de</span>
+              <input
+                aria-label="Début de plage"
+                min={1}
+                max={prizes.length}
+                type="number"
+                value={rangeStart}
+                onChange={(event) => setRangeStart(Math.max(1, Math.min(prizes.length, Number(event.target.value) || 1)))}
+              />
+            </label>
+            <label>
+              <span>à</span>
+              <input
+                aria-label="Fin de plage"
+                min={1}
+                max={prizes.length}
+                type="number"
+                value={rangeEnd}
+                onChange={(event) => setRangeEnd(Math.max(1, Math.min(prizes.length, Number(event.target.value) || 1)))}
+              />
+            </label>
+            <select
+              aria-label="Vitesse à appliquer"
+              value={rangeSpeed}
+              onChange={(event) => setRangeSpeed(event.target.value as DrawSpeed)}
+            >
+              {Object.entries(speedLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <button className="button secondary" type="button" onClick={applyRangeSpeed}>
+              Appliquer
+            </button>
+          </div>
+          <div className="tirage-speed-list">
+            {prizes.map((prize: any) => (
+              <label className="tirage-speed-row" key={prize._id}>
+                <span className="prize-icon emoji">{prize.emoji ?? "🎁"}</span>
+                <span>
+                  <strong>{prize.name}</strong>
+                  <small>Lot {prize.position}</small>
+                </span>
+                <select
+                  aria-label={`Vitesse du lot ${prize.position}`}
+                  value={prizeSpeeds[prize._id] ?? "normal"}
+                  onChange={(event) =>
+                    setPrizeSpeeds((current) => ({ ...current, [prize._id]: event.target.value as DrawSpeed }))
+                  }
+                >
+                  {Object.entries(speedLabels).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {raffle.status === "draft" ? (
         <section className="card stack">

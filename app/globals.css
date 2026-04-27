@@ -881,6 +881,477 @@ code {
   grid-template-columns: 34px 74px 42px minmax(0, 1fr);
 }
 
+.tirage-speed-list {
+  display: grid;
+  gap: 10px;
+}
+
+.tirage-speed-row {
+  align-items: center;
+  border: 1px solid #e7eaf3;
+  border-radius: 10px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 42px minmax(0, 1fr) 132px;
+  min-height: 64px;
+  padding: 12px 14px;
+}
+
+.tirage-speed-row small {
+  color: var(--muted);
+  display: block;
+  margin-top: 3px;
+}
+
+.tirage-speed-row select {
+  appearance: none;
+  background: white;
+  border: 1px solid #ccd2e3;
+  border-radius: 7px;
+  color: var(--foreground);
+  font: inherit;
+  min-height: 38px;
+  padding: 0 12px;
+}
+
+.tirage-range-tool {
+  align-items: end;
+  background: #f6f9ff;
+  border: 1px solid #d8e6fb;
+  border-radius: 10px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto 96px 96px 132px auto;
+  padding: 14px;
+}
+
+.tirage-range-tool > span {
+  align-self: center;
+  color: #17203c;
+  font-weight: 800;
+}
+
+.tirage-range-tool label {
+  display: grid;
+  gap: 5px;
+}
+
+.tirage-range-tool label span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.tirage-range-tool input,
+.tirage-range-tool select {
+  background: white;
+  border: 1px solid #b7cdf0;
+  border-radius: 7px;
+  color: var(--foreground);
+  font: inherit;
+  min-height: 40px;
+  padding: 0 10px;
+  width: 100%;
+}
+
+.tirage-range-tool .button {
+  min-height: 40px;
+}
+
+.tirage-confirm {
+  align-items: center;
+  background: #fffbeb;
+  border: 1px solid #fedf89;
+  border-radius: 10px;
+  color: #502400;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 16px;
+}
+
+.tirage-confirm p {
+  margin: 5px 0 0;
+}
+
+.tirage-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.tirage-overlay {
+  align-items: center;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(244, 180, 60, 0.34), transparent 18rem),
+    radial-gradient(circle at 86% 20%, rgba(67, 191, 142, 0.26), transparent 17rem),
+    linear-gradient(135deg, #19123a 0%, #2a1660 48%, #120b2f 100%);
+  color: #fffaf0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  inset: 0;
+  min-height: 100vh;
+  overflow: hidden;
+  padding: clamp(18px, 3vw, 34px);
+  position: fixed;
+  z-index: 1000;
+}
+
+.tirage-overlay:focus {
+  outline: none;
+}
+
+.tirage-topbar {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+  z-index: 2;
+}
+
+.tirage-topbar strong {
+  display: block;
+  font-size: clamp(1.1rem, 2vw, 1.45rem);
+  letter-spacing: -0.03em;
+  margin-top: 4px;
+}
+
+.tirage-kicker {
+  color: #f6c76f;
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.tirage-close {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  color: #fffaf0;
+  display: inline-flex;
+  font-size: 1.6rem;
+  height: 44px;
+  justify-content: center;
+  line-height: 1;
+  width: 44px;
+}
+
+.tirage-stage {
+  align-items: center;
+  display: grid;
+  justify-items: center;
+  min-height: 0;
+  position: relative;
+  text-align: center;
+}
+
+.tirage-preparing {
+  align-self: center;
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+  margin: 0 auto;
+  max-width: 560px;
+  text-align: center;
+}
+
+.tirage-preparing h2 {
+  font-size: clamp(2.2rem, 6vw, 5rem);
+  letter-spacing: -0.06em;
+  line-height: 1;
+  margin: 0;
+}
+
+.tirage-preparing p {
+  color: rgba(255, 250, 240, 0.78);
+  font-size: clamp(1rem, 2vw, 1.35rem);
+  margin: 0;
+}
+
+.tirage-loader {
+  animation: tirage-loader-spin 900ms linear infinite;
+  border: 5px solid rgba(255, 255, 255, 0.18);
+  border-top-color: #f6c76f;
+  border-radius: 999px;
+  height: 58px;
+  width: 58px;
+}
+
+.tirage-prize {
+  align-items: center;
+  display: grid;
+  gap: clamp(18px, 3vw, 34px);
+  justify-items: center;
+  max-width: min(900px, 94vw);
+}
+
+.tirage-emoji {
+  align-items: center;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(255, 245, 212, 0.78)),
+    #fff2b8;
+  border-radius: 50%;
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.35);
+  color: #151030;
+  display: inline-flex;
+  font-size: clamp(5rem, 14vw, 10rem);
+  height: clamp(150px, 24vw, 260px);
+  justify-content: center;
+  line-height: 1;
+  width: clamp(150px, 24vw, 260px);
+}
+
+.tirage-prize p,
+.tirage-number span {
+  color: #f6c76f;
+  font-size: clamp(0.84rem, 1.4vw, 1rem);
+  font-weight: 850;
+  letter-spacing: 0.14em;
+  margin: 0 0 12px;
+  text-transform: uppercase;
+}
+
+.tirage-prize h2 {
+  font-size: clamp(2.25rem, 7vw, 5.8rem);
+  letter-spacing: -0.055em;
+  line-height: 0.95;
+  margin: 0;
+  max-width: 11ch;
+  overflow-wrap: anywhere;
+}
+
+.tirage-prize span:not(.tirage-emoji) {
+  color: rgba(255, 250, 240, 0.78);
+  display: block;
+  font-size: clamp(1rem, 2vw, 1.4rem);
+  margin-top: 16px;
+}
+
+.tirage-stage.lot .tirage-prize {
+  animation: tirage-prize-enter 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.tirage-stage.burst .tirage-prize {
+  animation: tirage-prize-pop 480ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.tirage-burst {
+  height: 1px;
+  opacity: 0;
+  position: absolute;
+  width: 1px;
+}
+
+.tirage-stage.burst .tirage-burst {
+  opacity: 1;
+}
+
+.tirage-burst i {
+  background: #f6c76f;
+  border-radius: 999px;
+  height: clamp(80px, 13vw, 150px);
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: rotate(var(--burst-rotate)) translateY(-20px) scaleY(0);
+  transform-origin: center top;
+  width: 7px;
+}
+
+.tirage-stage.burst .tirage-burst i {
+  animation: tirage-ray 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.tirage-number {
+  display: none;
+  position: absolute;
+}
+
+.tirage-stage.number .tirage-prize,
+.tirage-stage.number .tirage-burst {
+  display: none;
+}
+
+.tirage-stage.number .tirage-number {
+  animation: tirage-number-reveal 650ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  display: block;
+}
+
+.tirage-number strong {
+  color: #fffaf0;
+  display: block;
+  font-size: clamp(5.5rem, 22vw, 15rem);
+  font-weight: 950;
+  letter-spacing: -0.08em;
+  line-height: 0.9;
+  text-shadow: 0 30px 70px rgba(0, 0, 0, 0.35);
+}
+
+.tirage-progress {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  position: relative;
+  z-index: 2;
+}
+
+.tirage-progress span {
+  background: rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  height: 8px;
+  width: clamp(24px, 4vw, 54px);
+}
+
+.tirage-progress span.active {
+  background: #f6c76f;
+}
+
+.tirage-progress span.done {
+  background: #43bf8e;
+}
+
+.tirage-summary {
+  align-content: center;
+  display: grid;
+  gap: 24px;
+  justify-items: center;
+  margin: 0 auto;
+  max-width: 960px;
+  width: 100%;
+}
+
+.tirage-summary h2 {
+  font-size: clamp(2.2rem, 6vw, 5rem);
+  letter-spacing: -0.06em;
+  line-height: 1;
+  margin: 0;
+}
+
+.tirage-summary-grid {
+  display: grid;
+  gap: 10px;
+  max-height: min(56vh, 560px);
+  overflow: auto;
+  width: min(760px, 100%);
+}
+
+.tirage-summary-row {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 34px 116px 46px minmax(0, 1fr);
+  padding: 12px 14px;
+}
+
+.tirage-summary-row span {
+  align-items: center;
+  background: #f6c76f;
+  border-radius: 999px;
+  color: #1b123b;
+  display: inline-flex;
+  font-weight: 900;
+  height: 30px;
+  justify-content: center;
+  width: 30px;
+}
+
+.tirage-summary-row strong {
+  font-size: 2rem;
+  letter-spacing: -0.05em;
+}
+
+.tirage-summary-row em {
+  font-style: normal;
+  font-size: 1.65rem;
+}
+
+.tirage-summary-row small {
+  color: rgba(255, 250, 240, 0.86);
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.tirage-summary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+@keyframes tirage-prize-enter {
+  from {
+    opacity: 0;
+    transform: translateY(70px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes tirage-prize-pop {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+
+@keyframes tirage-ray {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--burst-rotate)) translateY(-20px) scaleY(0);
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--burst-rotate)) translateY(-170px) scaleY(1);
+  }
+}
+
+@keyframes tirage-number-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(48px) scale(0.72);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes tirage-loader-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tirage-stage.lot .tirage-prize,
+  .tirage-stage.burst .tirage-prize,
+  .tirage-stage.burst .tirage-burst i,
+  .tirage-stage.number .tirage-number,
+  .tirage-loader {
+    animation-duration: 1ms;
+  }
+
+  .tirage-stage.burst .tirage-burst {
+    display: none;
+  }
+}
+
 @media (max-width: 860px) {
   body {
     background: #f7f8fc;
@@ -1083,6 +1554,52 @@ code {
   .lot-row {
     grid-template-columns: 32px 28px 38px minmax(0, 1fr) 30px;
     gap: 9px;
+  }
+
+  .tirage-speed-row {
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+
+  .tirage-speed-row select {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .tirage-range-tool {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .tirage-range-tool > span,
+  .tirage-range-tool select,
+  .tirage-range-tool .button {
+    grid-column: 1 / -1;
+  }
+
+  .tirage-confirm {
+    grid-template-columns: 1fr;
+  }
+
+  .tirage-confirm-actions,
+  .tirage-confirm-actions .button {
+    width: 100%;
+  }
+
+  .tirage-overlay {
+    padding: 18px;
+  }
+
+  .tirage-summary-row {
+    grid-template-columns: 30px 82px 34px minmax(0, 1fr);
+    gap: 9px;
+    padding: 10px;
+  }
+
+  .tirage-summary-row strong {
+    font-size: 1.55rem;
+  }
+
+  .tirage-summary-actions .button {
+    width: 100%;
   }
 
   .sticky-save-bar {

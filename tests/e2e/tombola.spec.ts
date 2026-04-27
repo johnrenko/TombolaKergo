@@ -12,8 +12,7 @@ async function createAccount(page: Page) {
   const email = `admin-${Date.now()}-${Math.random().toString(16).slice(2)}@example.test`;
   const invite = await convex.mutation(api.auth.createInvite, {
     adminSecret,
-    email,
-    name: "Admin E2E",
+    maxUses: 1,
     expiresInHours: 2
   });
   await page.goto(invite.signupPath);
@@ -97,13 +96,57 @@ test.describe("auth admin", () => {
   test("génération d’invitation depuis l’admin et historique visible", async ({ page }) => {
     await login(page);
     await page.getByRole("link", { name: "Invitations" }).click();
-    await page.getByLabel(/Email de l’invité/).fill(`invite-${Date.now()}@example.test`);
+    const maxUsesInput = page.getByLabel(/Nombre de comptes autorisés/);
+    await maxUsesInput.clear();
+    await expect(maxUsesInput).toHaveValue("");
+    await maxUsesInput.fill("2");
     await page.getByRole("button", { name: "Générer le lien" }).click();
-    await expect(page.locator("input[readonly]")).toHaveValue(/\/admin\/signup\?token=/);
+    const generatedInviteInput = page.locator("section").filter({ has: page.getByRole("heading", { name: "Lien généré" }) }).locator("input[readonly]");
+    await expect(generatedInviteInput).toHaveValue(/\/admin\/signup\?token=/);
+    const generatedInviteUrl = await generatedInviteInput.inputValue();
+    const activeInvitesSection = page.locator("section").filter({ has: page.getByRole("heading", { name: "Liens actifs" }) });
+    const activeInviteRowText = await activeInvitesSection.evaluate((section, url) => {
+      const inputs = Array.from(section.querySelectorAll<HTMLInputElement>("input[readonly]"));
+      const input = inputs.find((candidate) => candidate.value === url);
+      return input?.closest("tr")?.textContent ?? "";
+    }, generatedInviteUrl);
+    expect(activeInviteRowText).toContain("0");
+    expect(activeInviteRowText).toContain("2");
 
     await page.getByRole("link", { name: "Historique" }).click();
     await expect(page.getByRole("heading", { name: "Historique" })).toBeVisible();
     await expect(page.getByText("admin_invite.created").first()).toBeVisible();
+  });
+
+  test("un lien d’invitation peut créer plusieurs comptes jusqu’à sa limite", async () => {
+    const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL ?? "http://127.0.0.1:3210");
+    const nonce = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const invite = await convex.mutation(api.auth.createInvite, {
+      adminSecret,
+      maxUses: 2,
+      expiresInHours: 2
+    });
+
+    await convex.mutation(api.auth.acceptInvite, {
+      token: invite.token,
+      email: `multi-1-${nonce}@example.test`,
+      name: "Admin Multi 1",
+      password
+    });
+    await convex.mutation(api.auth.acceptInvite, {
+      token: invite.token,
+      email: `multi-2-${nonce}@example.test`,
+      name: "Admin Multi 2",
+      password
+    });
+    await expect(
+      convex.mutation(api.auth.acceptInvite, {
+        token: invite.token,
+        email: `multi-3-${nonce}@example.test`,
+        name: "Admin Multi 3",
+        password
+      })
+    ).rejects.toThrow(/invitation/);
   });
 });
 
@@ -144,8 +187,11 @@ test.describe("parcours admin", () => {
     await login(page);
     await page.getByRole("link", { name: "Créer une tombola" }).first().click();
     await page.getByLabel("Nom de la tombola").fill(title);
+    await expect(page.getByLabel("Numéro minimum")).toHaveAttribute("inputmode", "numeric");
+    await expect(page.getByLabel("Numéro maximum")).toHaveAttribute("inputmode", "numeric");
     await page.getByLabel("Numéro minimum").fill("1");
     await page.getByLabel("Numéro maximum").fill("6");
+    await expect(page.getByRole("textbox", { name: /Numéros exclus/ })).toHaveAttribute("inputmode", "decimal");
     await page.getByRole("textbox", { name: /Numéros exclus/ }).fill("1, 2, 3");
     await expect(page.getByRole("button", { name: "Retirer le numéro 1" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Retirer le numéro 2" })).toBeVisible();
@@ -171,6 +217,38 @@ test.describe("parcours admin", () => {
     await page.getByPlaceholder("Entrez votre numéro").fill("2");
     await page.getByRole("button", { name: "Vérifier" }).click();
     await expect(page.getByText("Ce numéro n’est pas éligible pour cette tombola.")).toBeVisible();
+  });
+
+  test("édition: toast de sauvegarde et état enregistré sans changement", async ({ page }) => {
+    const title = `E2E sauvegarde ${Date.now()}`;
+    await createRaffle(page, title);
+
+    await page.locator("a.button", { hasText: "Paramètres" }).click();
+    await expect(page.getByRole("button", { name: "✓ Enregistré" }).first()).toBeDisabled();
+
+    await page.getByLabel("Nom de la tombola").fill(`${title} modifiée`);
+    await expect(page.getByRole("button", { name: /^Enregistrer$/ }).first()).toBeEnabled();
+    await page.getByRole("button", { name: /^Enregistrer$/ }).first().click();
+
+    await expect(page.getByRole("status")).toContainText("Paramètres enregistrés.");
+    await expect(page.getByRole("button", { name: "✓ Enregistré" }).first()).toBeDisabled();
+  });
+
+  test("partage public: lien et QR code imprimable visibles dans les paramètres", async ({ page }) => {
+    const title = `E2E QR ${Date.now()}`;
+    await createRaffle(page, title);
+
+    await page.locator("a.button", { hasText: "Paramètres" }).click();
+    await expect(page.getByRole("heading", { name: "QR code public" })).toBeVisible();
+
+    const publicLinkInput = page.getByLabel("Lien public");
+    await expect(publicLinkInput).toHaveValue(/\/r\/.+/);
+    const publicUrl = await publicLinkInput.inputValue();
+    expect(new URL(publicUrl).pathname).toMatch(/^\/r\/.+/);
+
+    await expect(page.getByAltText("QR code de l’espace public")).toHaveAttribute("src", /^data:image\/png;base64,/);
+    await expect(page.getByRole("button", { name: "Imprimer le QR code" })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Partager" })).toBeVisible();
   });
 
   test("import, export et sélection d'emoji pour les lots", async ({ page }, testInfo) => {

@@ -6,6 +6,7 @@ import type { Id } from "./_generated/dataModel";
 const sessionDurationMs = 1000 * 60 * 60 * 24 * 14;
 const defaultInviteDurationMs = 1000 * 60 * 60 * 24 * 7;
 const passwordIterations = 120_000;
+const defaultInviteMaxUses = 1;
 
 type AdminUser = {
   _id: Id<"adminUsers">;
@@ -151,8 +152,7 @@ export const createInvite = mutation({
   args: {
     adminSecret: v.optional(v.string()),
     sessionToken: v.optional(v.string()),
-    email: v.optional(v.string()),
-    name: v.optional(v.string()),
+    maxUses: v.optional(v.number()),
     expiresInHours: v.optional(v.number())
   },
   handler: async (ctx, args) => {
@@ -166,10 +166,12 @@ export const createInvite = mutation({
     const token = randomToken();
     const now = Date.now();
     const expiresAt = now + Math.max(1, args.expiresInHours ?? defaultInviteDurationMs / (1000 * 60 * 60)) * 60 * 60 * 1000;
+    const maxUses = Math.max(1, Math.floor(args.maxUses ?? defaultInviteMaxUses));
     await ctx.db.insert("adminInvites", {
       tokenHash: await sha256(token),
-      email: args.email ? normalizeEmail(args.email) : undefined,
-      name: args.name?.trim() || undefined,
+      token,
+      maxUses,
+      usedCount: 0,
       createdByUserId: actor?._id,
       expiresAt,
       createdAt: now
@@ -177,14 +179,46 @@ export const createInvite = mutation({
     await writeAudit(ctx, actor, {
       action: "admin_invite.created",
       entityType: "adminInvite",
-      summary: `Invitation admin générée${args.email ? ` pour ${normalizeEmail(args.email)}` : ""}.`,
-      metadata: { email: args.email ? normalizeEmail(args.email) : null, expiresAt }
+      summary: `Invitation admin générée pour ${maxUses} compte${maxUses > 1 ? "s" : ""}.`,
+      metadata: { maxUses, expiresAt }
     });
     return {
       token,
       signupPath: `/admin/signup?token=${token}`,
       expiresAt
     };
+  }
+});
+
+export const listActiveInvites = query({
+  args: {
+    sessionToken: v.string(),
+    limit: v.optional(v.number())
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.sessionToken);
+    const now = Date.now();
+    const maxRows = Math.min(Math.max(1, Math.floor(args.limit ?? 50)), 100);
+    const invites = await ctx.db
+      .query("adminInvites")
+      .withIndex("by_expiresAt", (q) => q.gt("expiresAt", now))
+      .take(maxRows);
+
+    return invites
+      .map((invite) => {
+        const maxUses = invite.maxUses ?? 1;
+        const usedCount = invite.usedCount ?? (invite.usedAt ? 1 : 0);
+        return {
+          id: invite._id,
+          signupPath: invite.token ? `/admin/signup?token=${invite.token}` : null,
+          maxUses,
+          usedCount,
+          remainingUses: Math.max(0, maxUses - usedCount),
+          createdAt: invite.createdAt,
+          expiresAt: invite.expiresAt
+        };
+      })
+      .filter((invite) => invite.remainingUses > 0);
   }
 });
 
@@ -205,11 +239,13 @@ export const acceptInvite = mutation({
     if (!invite || invite.usedAt || invite.expiresAt < Date.now()) {
       throw new Error("Lien d’invitation expiré ou déjà utilisé.");
     }
-
-    const email = normalizeEmail(invite.email || args.email);
-    if (invite.email && normalizeEmail(args.email) !== invite.email) {
-      throw new Error("Cette invitation est réservée à une autre adresse email.");
+    const maxUses = invite.maxUses ?? 1;
+    const usedCount = invite.usedCount ?? (invite.usedAt ? 1 : 0);
+    if (usedCount >= maxUses) {
+      throw new Error("Lien d’invitation expiré ou déjà utilisé.");
     }
+
+    const email = normalizeEmail(args.email);
     const existingUser = await ctx.db.query("adminUsers").withIndex("by_email", (q) => q.eq("email", email)).unique();
     if (existingUser) {
       throw new Error("Un compte existe déjà pour cette adresse.");
@@ -219,14 +255,22 @@ export const acceptInvite = mutation({
     const salt = randomToken(16);
     const userId = await ctx.db.insert("adminUsers", {
       email,
-      name: args.name.trim() || invite.name || email,
+      name: args.name.trim() || email,
       passwordSalt: salt,
       passwordHash: await hashPassword(args.password, salt),
       createdAt: now,
       updatedAt: now,
       lastLoginAt: now
     });
-    await ctx.db.patch(invite._id, { usedAt: now, usedByUserId: userId });
+    const nextUsedCount = usedCount + 1;
+    const invitePatch: { usedCount: number; usedByUserId: Id<"adminUsers">; usedAt?: number } = {
+      usedCount: nextUsedCount,
+      usedByUserId: userId
+    };
+    if (nextUsedCount >= maxUses) {
+      invitePatch.usedAt = now;
+    }
+    await ctx.db.patch(invite._id, invitePatch);
     const user = await ctx.db.get(userId);
     const actor = user ? { _id: user._id, email: user.email, name: user.name } : null;
     await writeAudit(ctx, actor, {

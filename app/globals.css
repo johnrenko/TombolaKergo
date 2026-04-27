@@ -408,6 +408,13 @@ code {
   color: var(--success);
 }
 
+.toast {
+  box-shadow: var(--shadow);
+  position: sticky;
+  top: 14px;
+  z-index: 40;
+}
+
 .mobile-menu,
 .mobile-nav-panel {
   display: none;
@@ -423,6 +430,51 @@ code {
 
 .settings-card {
   gap: 22px;
+}
+
+.public-share-card {
+  border-color: rgba(63, 40, 232, 0.18);
+}
+
+.public-share-layout {
+  align-items: center;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: 178px minmax(0, 1fr);
+}
+
+.qr-preview {
+  align-items: center;
+  aspect-ratio: 1;
+  background: #f8f9fc;
+  border: 1px solid #e1e5f0;
+  border-radius: 10px;
+  display: flex;
+  justify-content: center;
+  padding: 14px;
+  width: 178px;
+}
+
+.qr-preview img {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
+.public-share-details {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.share-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.compact-status {
+  padding: 10px 12px;
 }
 
 .title-with-back {
@@ -1527,6 +1579,20 @@ code {
   .grid-3,
   .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .public-share-layout {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .qr-preview {
+    justify-self: center;
+    width: min(220px, 100%);
+  }
+
+  .share-actions .button {
+    width: 100%;
   }
 
   .metric-grid {

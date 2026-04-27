@@ -10,10 +10,7 @@ import { setAdminSessionToken } from "../../components/adminSession";
 function signupErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : "";
   if (message.includes("Lien d’invitation")) {
-    return "Ce lien n’est plus utilisable. Il a peut-être expiré ou déjà servi à créer un compte.";
-  }
-  if (message.includes("réservée à une autre adresse")) {
-    return "Cette invitation est réservée à une autre adresse email. Vérifiez l’adresse ou demandez un nouveau lien.";
+    return "Ce lien n’est plus utilisable. Il a peut-être expiré ou atteint son nombre maximum de comptes.";
   }
   if (message.includes("Un compte existe déjà")) {
     return "Un compte existe déjà avec cet email. Retournez à la connexion pour vous identifier.";
@@ -56,7 +53,7 @@ function SignupForm() {
         <p className="eyebrow">Invitation admin</p>
         <h1 className="page-title">Créer mon compte</h1>
         <p className="muted">
-          Renseignez vos informations pour activer votre accès administrateur. Ce lien ne fonctionne qu’une seule fois.
+          Renseignez vos informations pour activer votre accès administrateur.
         </p>
         {!token ? <div className="error">Lien incomplet : demandez un nouveau lien d’invitation.</div> : null}
         {error ? <div className="error">{error}</div> : null}

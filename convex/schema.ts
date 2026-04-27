@@ -11,6 +11,8 @@ export default defineSchema({
     numberMin: v.number(),
     numberMax: v.number(),
     excludedNumbers: v.array(v.number()),
+    contactEmail: v.optional(v.string()),
+    contactPhone: v.optional(v.string()),
     showPublicWinners: v.boolean(),
     allowNumberLookup: v.boolean(),
     drawnAt: v.optional(v.number()),

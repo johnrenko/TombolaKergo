@@ -304,6 +304,47 @@ test.describe("parcours admin", () => {
     await expect(page.getByText("raffle.drawn").first()).toBeVisible();
     await expect(page.getByText("raffle.published").first()).toBeVisible();
   });
+
+  test("mode tirage lance le tirage, révèle les lots et permet de rejouer", async ({ page }) => {
+    const title = `E2E mode tirage ${Date.now()}`;
+    await createRaffle(page, title);
+    await page.getByLabel("Début de plage").fill("1");
+    await page.getByLabel("Fin de plage").fill("3");
+    await page.getByLabel("Vitesse à appliquer").selectOption("fast");
+    await page.getByRole("button", { name: "Appliquer" }).click();
+    await expect(page.getByLabel("Vitesse du lot 1")).toHaveValue("fast");
+    await expect(page.getByLabel("Vitesse du lot 2")).toHaveValue("fast");
+    await expect(page.getByLabel("Vitesse du lot 3")).toHaveValue("fast");
+
+    await page.getByRole("button", { name: /Lancer le mode tirage/ }).click();
+    await expect(page.getByText("Êtes-vous sûr ?")).toBeVisible();
+    await expect(page.getByText("Cette action va faire le tirage")).toBeVisible();
+    await expect(page.getByText("Aucun résultat pour le moment.")).toBeVisible();
+    await expect(page.getByRole("button", { name: /Publier les résultats/ })).toHaveCount(0);
+    await page.getByRole("button", { name: "Confirmer le tirage" }).click();
+    const presentation = page.getByRole("dialog", { name: "Mode tirage" });
+    await expect(presentation).toBeVisible();
+    await expect(presentation.getByText("Lot 3 sur 3")).toBeVisible();
+    await expect(presentation.locator(".tirage-emoji")).toBeVisible();
+    const emojiBox = await presentation.locator(".tirage-emoji").boundingBox();
+    expect(emojiBox?.width).toBeGreaterThan(80);
+    expect(emojiBox?.height).toBeGreaterThan(80);
+    await expect(presentation.getByText("Numéro gagnant", { exact: true })).toBeVisible({ timeout: 4000 });
+    await expect(page.getByRole("heading", { name: "Gagnants" })).toBeVisible({ timeout: 12000 });
+    await expect(page.locator(".tirage-summary-row")).toHaveCount(3);
+    await expect(page.locator(".tirage-summary-row span")).toHaveText(["3", "2", "1"]);
+
+    await page.getByRole("button", { name: "Quitter", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Mode tirage" })).toHaveCount(0);
+    await expect(page.locator(".result-row")).toHaveCount(3);
+    await expect(page.getByRole("button", { name: /Publier les résultats/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Rejouer le mode tirage/ })).toBeVisible();
+
+    await page.getByRole("button", { name: /Rejouer le mode tirage/ }).click();
+    await expect(page.getByRole("dialog", { name: "Mode tirage" })).toBeVisible();
+    await page.getByRole("button", { name: "Quitter le mode tirage" }).click();
+    await expect(page.locator(".result-row")).toHaveCount(3);
+  });
 });
 
 test.describe("parcours participant", () => {

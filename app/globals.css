@@ -408,6 +408,13 @@ code {
   color: var(--success);
 }
 
+.toast {
+  box-shadow: var(--shadow);
+  position: sticky;
+  top: 14px;
+  z-index: 40;
+}
+
 .mobile-menu,
 .mobile-nav-panel {
   display: none;

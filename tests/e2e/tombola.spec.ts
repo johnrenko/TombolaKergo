@@ -144,6 +144,8 @@ test.describe("parcours admin", () => {
     await login(page);
     await page.getByRole("link", { name: "Créer une tombola" }).first().click();
     await page.getByLabel("Nom de la tombola").fill(title);
+    await expect(page.getByLabel("Numéro minimum")).toHaveAttribute("inputmode", "numeric");
+    await expect(page.getByLabel("Numéro maximum")).toHaveAttribute("inputmode", "numeric");
     await page.getByLabel("Numéro minimum").fill("1");
     await page.getByLabel("Numéro maximum").fill("6");
     await expect(page.getByRole("textbox", { name: /Numéros exclus/ })).toHaveAttribute("inputmode", "decimal");
@@ -172,6 +174,21 @@ test.describe("parcours admin", () => {
     await page.getByPlaceholder("Entrez votre numéro").fill("2");
     await page.getByRole("button", { name: "Vérifier" }).click();
     await expect(page.getByText("Ce numéro n’est pas éligible pour cette tombola.")).toBeVisible();
+  });
+
+  test("édition: toast de sauvegarde et état enregistré sans changement", async ({ page }) => {
+    const title = `E2E sauvegarde ${Date.now()}`;
+    await createRaffle(page, title);
+
+    await page.locator("a.button", { hasText: "Paramètres" }).click();
+    await expect(page.getByRole("button", { name: "✓ Enregistré" }).first()).toBeDisabled();
+
+    await page.getByLabel("Nom de la tombola").fill(`${title} modifiée`);
+    await expect(page.getByRole("button", { name: /^Enregistrer$/ }).first()).toBeEnabled();
+    await page.getByRole("button", { name: /^Enregistrer$/ }).first().click();
+
+    await expect(page.getByRole("status")).toContainText("Paramètres enregistrés.");
+    await expect(page.getByRole("button", { name: "✓ Enregistré" }).first()).toBeDisabled();
   });
 
   test("import, export et sélection d'emoji pour les lots", async ({ page }, testInfo) => {

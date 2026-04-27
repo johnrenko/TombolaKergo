@@ -110,6 +110,31 @@ function downloadCsv(filename: string, contents: string) {
   URL.revokeObjectURL(url);
 }
 
+function serializeRaffleDraft(draft: {
+  title: string;
+  numberMin: number;
+  numberMax: number;
+  excludedNumbers: number[];
+  showPublicWinners: boolean;
+  allowNumberLookup: boolean;
+  prizes: PrizeDraft[];
+}) {
+  return JSON.stringify({
+    title: draft.title,
+    numberMin: draft.numberMin,
+    numberMax: draft.numberMax,
+    excludedNumbers: draft.excludedNumbers,
+    showPublicWinners: draft.showPublicWinners,
+    allowNumberLookup: draft.allowNumberLookup,
+    prizes: draft.prizes.map((prize, index) => ({
+      name: prize.name,
+      emoji: prize.emoji || defaultPrizeEmoji,
+      description: prize.description || "",
+      position: index + 1
+    }))
+  });
+}
+
 export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; raffleId?: string }) {
   const router = useRouter();
   const createRaffle = useMutation(api.raffles.createRaffle);
@@ -127,7 +152,9 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
   const [allowNumberLookup, setAllowNumberLookup] = useState(true);
   const [prizes, setPrizes] = useState<PrizeDraft[]>(initialPrizes);
   const [error, setError] = useState("");
+  const [saveToast, setSaveToast] = useState("");
   const [saving, setSaving] = useState(false);
+  const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
   const [saveButtonInView, setSaveButtonInView] = useState(true);
   const saveButtonBarRef = useRef<HTMLDivElement>(null);
 
@@ -146,13 +173,23 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
     setExcludedNumbers(adminRaffle.raffle.excludedNumbers.join(", "));
     setShowPublicWinners(adminRaffle.raffle.showPublicWinners);
     setAllowNumberLookup(adminRaffle.raffle.allowNumberLookup);
-    setPrizes(
-      adminRaffle.prizes.map((prize) => ({
-        name: prize.name,
-        emoji: prize.emoji ?? defaultPrizeEmoji,
-        description: prize.description ?? "",
-        position: prize.position
-      }))
+    const loadedPrizes = adminRaffle.prizes.map((prize) => ({
+      name: prize.name,
+      emoji: prize.emoji ?? defaultPrizeEmoji,
+      description: prize.description ?? "",
+      position: prize.position
+    }));
+    setPrizes(loadedPrizes);
+    setSavedSnapshot(
+      serializeRaffleDraft({
+        title: adminRaffle.raffle.title,
+        numberMin: adminRaffle.raffle.numberMin,
+        numberMax: adminRaffle.raffle.numberMax,
+        excludedNumbers: adminRaffle.raffle.excludedNumbers,
+        showPublicWinners: adminRaffle.raffle.showPublicWinners,
+        allowNumberLookup: adminRaffle.raffle.allowNumberLookup,
+        prizes: loadedPrizes
+      })
     );
   }, [adminRaffle]);
 
@@ -183,6 +220,32 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
     return Math.max(0, count);
   }, [excludedNumbers, numberMax, numberMin]);
   const excludedNumbersList = useMemo(() => parseExcludedNumbers(excludedNumbers), [excludedNumbers]);
+  const currentSnapshot = useMemo(
+    () =>
+      serializeRaffleDraft({
+        title,
+        numberMin,
+        numberMax,
+        excludedNumbers: excludedNumbersList,
+        showPublicWinners,
+        allowNumberLookup,
+        prizes
+      }),
+    [allowNumberLookup, excludedNumbersList, numberMax, numberMin, prizes, showPublicWinners, title]
+  );
+  const hasUnsavedChanges = savedSnapshot === null || currentSnapshot !== savedSnapshot;
+  const saveDisabled = saving || (savedSnapshot !== null && !hasUnsavedChanges);
+  const saveButtonLabel = saving ? "Enregistrement…" : saveDisabled ? "✓ Enregistré" : "Enregistrer";
+
+  useEffect(() => {
+    if (hasUnsavedChanges) setSaveToast("");
+  }, [hasUnsavedChanges]);
+
+  useEffect(() => {
+    if (!saveToast) return;
+    const timeout = window.setTimeout(() => setSaveToast(""), 3200);
+    return () => window.clearTimeout(timeout);
+  }, [saveToast]);
 
   function updatePrize(index: number, patch: Partial<PrizeDraft>) {
     setPrizes((current) => current.map((prize, itemIndex) => (itemIndex === index ? { ...prize, ...patch } : prize)));
@@ -229,7 +292,9 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
 
   async function save(event: React.FormEvent) {
     event.preventDefault();
+    if (saveDisabled) return;
     setError("");
+    setSaveToast("");
     if (numberMin > numberMax) {
       setError("Le range est invalide : le numéro minimum doit être inférieur ou égal au maximum.");
       return;
@@ -264,7 +329,8 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
         router.push(`/admin/raffles/${result.raffleId}/draw`);
       } else if (raffleId) {
         await updateRaffle({ raffleId: raffleId as Id<"raffles">, ...payload });
-        router.push(`/admin/raffles/${raffleId}/draw`);
+        setSavedSnapshot(currentSnapshot);
+        setSaveToast("Paramètres enregistrés.");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Impossible d’enregistrer la tombola.");
@@ -315,6 +381,11 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
         <div className="notice">Cette tombola a déjà été tirée. Les paramètres ne peuvent plus être modifiés.</div>
       ) : null}
       {error ? <div className="error">{error}</div> : null}
+      {saveToast ? (
+        <div className="success toast" role="status">
+          {saveToast}
+        </div>
+      ) : null}
 
       <form className="stack" onSubmit={save}>
         <section className="card stack settings-card">
@@ -325,11 +396,25 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
             </label>
             <label className="field">
               <span className="label">Numéro minimum</span>
-              <input className="input" disabled={locked} type="number" value={numberMin} onChange={(event) => setNumberMin(Number(event.target.value))} />
+              <input
+                className="input"
+                disabled={locked}
+                inputMode="numeric"
+                type="number"
+                value={numberMin}
+                onChange={(event) => setNumberMin(Number(event.target.value))}
+              />
             </label>
             <label className="field">
               <span className="label">Numéro maximum</span>
-              <input className="input" disabled={locked} type="number" value={numberMax} onChange={(event) => setNumberMax(Number(event.target.value))} />
+              <input
+                className="input"
+                disabled={locked}
+                inputMode="numeric"
+                type="number"
+                value={numberMax}
+                onChange={(event) => setNumberMax(Number(event.target.value))}
+              />
             </label>
             <label className="field full">
               <span className="label">Numéros exclus</span>
@@ -497,15 +582,15 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
 
         {!locked ? (
           <div className="sticky-save-bar" ref={saveButtonBarRef}>
-            <button className="button primary" disabled={saving} type="submit">
-              {saving ? "Enregistrement…" : "Enregistrer"}
+            <button className="button primary" disabled={saveDisabled} type="submit">
+              {saveButtonLabel}
             </button>
           </div>
         ) : null}
 
         {!locked && !saveButtonInView ? (
-          <button className="button primary floating-save-button" disabled={saving} type="submit">
-            {saving ? "Enregistrement…" : "Enregistrer"}
+          <button className="button primary floating-save-button" disabled={saveDisabled} type="submit">
+            {saveButtonLabel}
           </button>
         ) : null}
       </form>

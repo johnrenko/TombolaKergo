@@ -120,6 +120,8 @@ function serializeRaffleDraft(draft: {
   numberMin: number;
   numberMax: number;
   excludedNumbers: number[];
+  contactEmail: string;
+  contactPhone: string;
   showPublicWinners: boolean;
   allowNumberLookup: boolean;
   prizes: PrizeDraft[];
@@ -129,6 +131,8 @@ function serializeRaffleDraft(draft: {
     numberMin: draft.numberMin,
     numberMax: draft.numberMax,
     excludedNumbers: draft.excludedNumbers,
+    contactEmail: draft.contactEmail.trim(),
+    contactPhone: draft.contactPhone.trim(),
     showPublicWinners: draft.showPublicWinners,
     allowNumberLookup: draft.allowNumberLookup,
     prizes: draft.prizes.map((prize, index) => ({
@@ -309,6 +313,7 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
   const [error, setError] = useState("");
   const [saveToast, setSaveToast] = useState("");
   const [saving, setSaving] = useState(false);
+  const [savingContact, setSavingContact] = useState(false);
   const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
   const [saveButtonInView, setSaveButtonInView] = useState(true);
   const saveButtonBarRef = useRef<HTMLDivElement>(null);
@@ -343,6 +348,8 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
         numberMin: adminRaffle.raffle.numberMin,
         numberMax: adminRaffle.raffle.numberMax,
         excludedNumbers: adminRaffle.raffle.excludedNumbers,
+        contactEmail: adminRaffle.raffle.contactEmail ?? "contact@kermesse.com",
+        contactPhone: adminRaffle.raffle.contactPhone ?? "",
         showPublicWinners: adminRaffle.raffle.showPublicWinners,
         allowNumberLookup: adminRaffle.raffle.allowNumberLookup,
         prizes: loadedPrizes
@@ -384,11 +391,13 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
         numberMin,
         numberMax,
         excludedNumbers: excludedNumbersList,
+        contactEmail,
+        contactPhone,
         showPublicWinners,
         allowNumberLookup,
         prizes
       }),
-    [allowNumberLookup, excludedNumbersList, numberMax, numberMin, prizes, showPublicWinners, title]
+    [allowNumberLookup, contactEmail, contactPhone, excludedNumbersList, numberMax, numberMin, prizes, showPublicWinners, title]
   );
   const hasUnsavedChanges = savedSnapshot === null || currentSnapshot !== savedSnapshot;
   const saveDisabled = saving || (savedSnapshot !== null && !hasUnsavedChanges);
@@ -458,6 +467,8 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
         contactEmail,
         contactPhone: contactPhone || undefined
       });
+      setSavedSnapshot(currentSnapshot);
+      setSaveToast("Contact enregistré.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Impossible d’enregistrer le contact.");
     } finally {

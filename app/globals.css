@@ -1337,6 +1337,54 @@ code {
   justify-content: center;
 }
 
+.tirage-qr {
+  align-content: center;
+  display: grid;
+  gap: 18px;
+  justify-items: center;
+  margin: 0 auto;
+  max-width: 680px;
+  text-align: center;
+  width: 100%;
+}
+
+.tirage-qr h2 {
+  font-size: clamp(2rem, 5vw, 4.5rem);
+  line-height: 1;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.tirage-qr p {
+  color: rgba(255, 250, 240, 0.82);
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.tirage-qr strong {
+  color: rgba(255, 250, 240, 0.86);
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.tirage-qr-code {
+  align-items: center;
+  aspect-ratio: 1;
+  background: #ffffff;
+  border-radius: 14px;
+  color: #4d5a73;
+  display: flex;
+  justify-content: center;
+  padding: 18px;
+  width: min(360px, 78vw);
+}
+
+.tirage-qr-code img {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
 @keyframes tirage-prize-enter {
   from {
     opacity: 0;

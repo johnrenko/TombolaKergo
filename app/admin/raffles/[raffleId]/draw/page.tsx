@@ -4,6 +4,7 @@ import { useMutation, useQuery } from "convex/react";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import { use, useEffect, useMemo, useRef, useState } from "react";
+import QRCode from "qrcode";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 import { getAdminSessionToken } from "../../../../components/adminSession";
@@ -38,6 +39,8 @@ function DrawPresentation({
   onClose,
   onReplay,
   onPublish,
+  publicSlug,
+  title,
   canPublish,
   busy
 }: {
@@ -45,15 +48,21 @@ function DrawPresentation({
   speeds: Record<string, DrawSpeed>;
   onClose: () => void;
   onReplay: () => void;
-  onPublish: () => void;
+  onPublish: () => Promise<boolean>;
+  publicSlug: string;
+  title: string;
   canPublish: boolean;
   busy: boolean;
 }) {
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<PresentationPhase>("lot");
+  const [showQrCode, setShowQrCode] = useState(false);
+  const [origin, setOrigin] = useState("");
+  const [qrDataUrl, setQrDataUrl] = useState("");
   const overlayRef = useRef<HTMLDivElement>(null);
   const activeRow = rows[index];
   const revealedRows = phase === "summary" ? rows : rows.slice(0, phase === "number" ? index + 1 : index);
+  const publicUrl = origin ? `${origin}/r/${publicSlug}` : `/r/${publicSlug}`;
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -68,6 +77,33 @@ function DrawPresentation({
   useEffect(() => {
     overlayRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
+
+  useEffect(() => {
+    if (!showQrCode || !origin) return;
+    let cancelled = false;
+    QRCode.toDataURL(publicUrl, {
+      errorCorrectionLevel: "M",
+      margin: 2,
+      width: 420,
+      color: {
+        dark: "#0d1533",
+        light: "#ffffff"
+      }
+    })
+      .then((dataUrl) => {
+        if (!cancelled) setQrDataUrl(dataUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setQrDataUrl("");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [origin, publicUrl, showQrCode]);
 
   useEffect(() => {
     if (!activeRow || phase === "summary") return;
@@ -91,7 +127,16 @@ function DrawPresentation({
   function replay() {
     setIndex(0);
     setPhase("lot");
+    setShowQrCode(false);
     onReplay();
+  }
+
+  async function publishAndShowQrCode() {
+    const published = await onPublish();
+    if (published) {
+      setQrDataUrl("");
+      setShowQrCode(true);
+    }
   }
 
   return (
@@ -108,7 +153,20 @@ function DrawPresentation({
         </button>
       </div>
 
-      {!activeRow && phase !== "summary" ? (
+      {showQrCode ? (
+        <div className="tirage-qr">
+          <span className="tirage-kicker">Résultats publiés</span>
+          <h2>{title}</h2>
+          <div className="tirage-qr-code" aria-label="QR code de la page publique">
+            {qrDataUrl ? <img src={qrDataUrl} alt="QR code de la page publique" /> : <span>Génération…</span>}
+          </div>
+          <p>Scannez ce QR code pour consulter les résultats.</p>
+          <strong>{publicUrl}</strong>
+          <button className="button secondary" type="button" onClick={onClose}>
+            Fermer
+          </button>
+        </div>
+      ) : !activeRow && phase !== "summary" ? (
         <div className="tirage-preparing" role="status">
           <span className="tirage-loader" aria-hidden="true" />
           <h2>Préparation du tirage</h2>
@@ -132,7 +190,7 @@ function DrawPresentation({
               Rejouer le mode tirage
             </button>
             {canPublish ? (
-              <button className="button primary" disabled={busy} type="button" onClick={onPublish}>
+              <button className="button primary" disabled={busy} type="button" onClick={publishAndShowQrCode}>
                 {busy ? "Publication…" : "Publier les résultats"}
               </button>
             ) : null}
@@ -300,8 +358,10 @@ export default function DrawPage({ params }: { params: Promise<{ raffleId: strin
     setBusy(true);
     try {
       await publishRaffle({ raffleId: typedRaffleId, sessionToken: getAdminSessionToken() });
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Impossible de publier les résultats.");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -343,6 +403,8 @@ export default function DrawPage({ params }: { params: Promise<{ raffleId: strin
           onClose={closePresentation}
           onReplay={() => undefined}
           onPublish={publish}
+          publicSlug={raffle.publicSlug}
+          title={raffle.title}
           canPublish={raffle.status === "drawn"}
           busy={busy}
         />

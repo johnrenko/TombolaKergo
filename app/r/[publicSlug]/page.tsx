@@ -58,6 +58,7 @@ export default function PublicRafflePage({ params }: { params: Promise<{ publicS
   const published = raffle.status === "published";
   const contactEmail = raffle.contactEmail ?? "contact@kermesse.com";
   const contactPhone = raffle.contactPhone;
+  const contactLabel = contactPhone ? `${contactEmail} ou ${contactPhone}` : contactEmail;
 
   return (
     <main className="public-page">
@@ -171,7 +172,7 @@ export default function PublicRafflePage({ params }: { params: Promise<{ publicS
         ) : null}
           <footer style={{ padding: "14px 0 0", textAlign: "center" }}>
             <strong>Merci à tous pour votre participation !</strong>
-            <p className="muted">Les gains sont à retirer selon les modalités indiquées par l’organisateur.</p>
+            <p className="muted">Contactez {contactLabel} si vous avez gagné un lot.</p>
           </footer>
         </div>
       </section>

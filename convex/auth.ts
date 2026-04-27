@@ -169,6 +169,7 @@ export const createInvite = mutation({
     const maxUses = Math.max(1, Math.floor(args.maxUses ?? defaultInviteMaxUses));
     await ctx.db.insert("adminInvites", {
       tokenHash: await sha256(token),
+      token,
       maxUses,
       usedCount: 0,
       createdByUserId: actor?._id,
@@ -186,6 +187,38 @@ export const createInvite = mutation({
       signupPath: `/admin/signup?token=${token}`,
       expiresAt
     };
+  }
+});
+
+export const listActiveInvites = query({
+  args: {
+    sessionToken: v.string(),
+    limit: v.optional(v.number())
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx, args.sessionToken);
+    const now = Date.now();
+    const maxRows = Math.min(Math.max(1, Math.floor(args.limit ?? 50)), 100);
+    const invites = await ctx.db
+      .query("adminInvites")
+      .withIndex("by_expiresAt", (q) => q.gt("expiresAt", now))
+      .take(maxRows);
+
+    return invites
+      .map((invite) => {
+        const maxUses = invite.maxUses ?? 1;
+        const usedCount = invite.usedCount ?? (invite.usedAt ? 1 : 0);
+        return {
+          id: invite._id,
+          signupPath: invite.token ? `/admin/signup?token=${invite.token}` : null,
+          maxUses,
+          usedCount,
+          remainingUses: Math.max(0, maxUses - usedCount),
+          createdAt: invite.createdAt,
+          expiresAt: invite.expiresAt
+        };
+      })
+      .filter((invite) => invite.remainingUses > 0);
   }
 });
 

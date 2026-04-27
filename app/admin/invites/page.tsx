@@ -1,9 +1,10 @@
 "use client";
 
-import { useMutation } from "convex/react";
-import { useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { useEffect, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import { getAdminSessionToken } from "../../components/adminSession";
+import { formatDate } from "../../components/format";
 
 function inviteErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : "";
@@ -18,21 +19,35 @@ function inviteErrorMessage(error: unknown) {
 
 export default function InvitesPage() {
   const createInvite = useMutation(api.auth.createInvite);
-  const [maxUses, setMaxUses] = useState(1);
+  const [sessionToken, setSessionToken] = useState("");
+  const [maxUses, setMaxUses] = useState("1");
   const [inviteUrl, setInviteUrl] = useState("");
   const [error, setError] = useState("");
+  const activeInvites = useQuery(
+    api.auth.listActiveInvites,
+    sessionToken ? { sessionToken, limit: 50 } : "skip"
+  );
+
+  useEffect(() => {
+    setSessionToken(getAdminSessionToken());
+  }, []);
+
+  function absoluteSignupUrl(signupPath: string) {
+    return `${window.location.origin}${signupPath}`;
+  }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setError("");
     setInviteUrl("");
     try {
+      const parsedMaxUses = Number.parseInt(maxUses, 10);
       const invite = await createInvite({
-        sessionToken: getAdminSessionToken(),
-        maxUses,
+        sessionToken: sessionToken || getAdminSessionToken(),
+        maxUses: Number.isFinite(parsedMaxUses) ? Math.max(1, parsedMaxUses) : 1,
         expiresInHours: 24 * 7
       });
-      setInviteUrl(`${window.location.origin}${invite.signupPath}`);
+      setInviteUrl(absoluteSignupUrl(invite.signupPath));
     } catch (err) {
       setError(inviteErrorMessage(err));
     }
@@ -56,7 +71,7 @@ export default function InvitesPage() {
             step={1}
             type="number"
             value={maxUses}
-            onChange={(event) => setMaxUses(Math.max(1, Number.parseInt(event.target.value, 10) || 1))}
+            onChange={(event) => setMaxUses(event.target.value)}
           />
         </label>
         <button className="button primary" type="submit">
@@ -73,6 +88,63 @@ export default function InvitesPage() {
           </button>
         </section>
       ) : null}
+      <section className="card stack">
+        <div>
+          <h2 className="section-title">Liens actifs</h2>
+          <p className="muted">Suivez les invitations encore utilisables et leur quota de création de comptes.</p>
+        </div>
+        {!activeInvites ? (
+          <p className="muted">Chargement…</p>
+        ) : activeInvites.length === 0 ? (
+          <p className="muted">Aucun lien actif.</p>
+        ) : (
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Lien</th>
+                  <th>Utilisés</th>
+                  <th>Restants</th>
+                  <th>Total</th>
+                  <th>Créé</th>
+                  <th>Expire</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activeInvites.map((invite) => {
+                  const signupUrl = invite.signupPath ? absoluteSignupUrl(invite.signupPath) : null;
+                  return (
+                    <tr key={invite.id}>
+                      <td>
+                        {signupUrl ? (
+                          <input className="input" readOnly value={signupUrl} onFocus={(event) => event.currentTarget.select()} />
+                        ) : (
+                          <span className="muted">Lien créé avant le suivi des URLs</span>
+                        )}
+                      </td>
+                      <td>{invite.usedCount}</td>
+                      <td>{invite.remainingUses}</td>
+                      <td>{invite.maxUses}</td>
+                      <td>{formatDate(invite.createdAt)}</td>
+                      <td>{formatDate(invite.expiresAt)}</td>
+                      <td>
+                        {signupUrl ? (
+                          <button className="button secondary" type="button" onClick={() => navigator.clipboard.writeText(signupUrl)}>
+                            Copier
+                          </button>
+                        ) : (
+                          <span className="muted">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </main>
   );
 }

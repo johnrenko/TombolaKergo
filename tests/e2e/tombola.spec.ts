@@ -96,9 +96,22 @@ test.describe("auth admin", () => {
   test("génération d’invitation depuis l’admin et historique visible", async ({ page }) => {
     await login(page);
     await page.getByRole("link", { name: "Invitations" }).click();
-    await page.getByLabel(/Nombre de comptes autorisés/).fill("2");
+    const maxUsesInput = page.getByLabel(/Nombre de comptes autorisés/);
+    await maxUsesInput.clear();
+    await expect(maxUsesInput).toHaveValue("");
+    await maxUsesInput.fill("2");
     await page.getByRole("button", { name: "Générer le lien" }).click();
-    await expect(page.locator("input[readonly]")).toHaveValue(/\/admin\/signup\?token=/);
+    const generatedInviteInput = page.locator("section").filter({ has: page.getByRole("heading", { name: "Lien généré" }) }).locator("input[readonly]");
+    await expect(generatedInviteInput).toHaveValue(/\/admin\/signup\?token=/);
+    const generatedInviteUrl = await generatedInviteInput.inputValue();
+    const activeInvitesSection = page.locator("section").filter({ has: page.getByRole("heading", { name: "Liens actifs" }) });
+    const activeInviteRowText = await activeInvitesSection.evaluate((section, url) => {
+      const inputs = Array.from(section.querySelectorAll<HTMLInputElement>("input[readonly]"));
+      const input = inputs.find((candidate) => candidate.value === url);
+      return input?.closest("tr")?.textContent ?? "";
+    }, generatedInviteUrl);
+    expect(activeInviteRowText).toContain("0");
+    expect(activeInviteRowText).toContain("2");
 
     await page.getByRole("link", { name: "Historique" }).click();
     await expect(page.getByRole("heading", { name: "Historique" })).toBeVisible();

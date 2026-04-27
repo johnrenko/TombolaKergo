@@ -33,6 +33,7 @@ export default defineSchema({
 
   adminInvites: defineTable({
     tokenHash: v.string(),
+    token: v.optional(v.string()),
     email: v.optional(v.string()),
     name: v.optional(v.string()),
     maxUses: v.optional(v.number()),
@@ -44,7 +45,8 @@ export default defineSchema({
     createdAt: v.number()
   })
     .index("by_tokenHash", ["tokenHash"])
-    .index("by_createdAt", ["createdAt"]),
+    .index("by_createdAt", ["createdAt"])
+    .index("by_expiresAt", ["expiresAt"]),
 
   adminSessions: defineTable({
     tokenHash: v.string(),

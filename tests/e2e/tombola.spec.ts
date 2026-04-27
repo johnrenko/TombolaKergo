@@ -12,8 +12,7 @@ async function createAccount(page: Page) {
   const email = `admin-${Date.now()}-${Math.random().toString(16).slice(2)}@example.test`;
   const invite = await convex.mutation(api.auth.createInvite, {
     adminSecret,
-    email,
-    name: "Admin E2E",
+    maxUses: 1,
     expiresInHours: 2
   });
   await page.goto(invite.signupPath);
@@ -97,13 +96,44 @@ test.describe("auth admin", () => {
   test("génération d’invitation depuis l’admin et historique visible", async ({ page }) => {
     await login(page);
     await page.getByRole("link", { name: "Invitations" }).click();
-    await page.getByLabel(/Email de l’invité/).fill(`invite-${Date.now()}@example.test`);
+    await page.getByLabel(/Nombre de comptes autorisés/).fill("2");
     await page.getByRole("button", { name: "Générer le lien" }).click();
     await expect(page.locator("input[readonly]")).toHaveValue(/\/admin\/signup\?token=/);
 
     await page.getByRole("link", { name: "Historique" }).click();
     await expect(page.getByRole("heading", { name: "Historique" })).toBeVisible();
     await expect(page.getByText("admin_invite.created").first()).toBeVisible();
+  });
+
+  test("un lien d’invitation peut créer plusieurs comptes jusqu’à sa limite", async () => {
+    const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL ?? "http://127.0.0.1:3210");
+    const nonce = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const invite = await convex.mutation(api.auth.createInvite, {
+      adminSecret,
+      maxUses: 2,
+      expiresInHours: 2
+    });
+
+    await convex.mutation(api.auth.acceptInvite, {
+      token: invite.token,
+      email: `multi-1-${nonce}@example.test`,
+      name: "Admin Multi 1",
+      password
+    });
+    await convex.mutation(api.auth.acceptInvite, {
+      token: invite.token,
+      email: `multi-2-${nonce}@example.test`,
+      name: "Admin Multi 2",
+      password
+    });
+    await expect(
+      convex.mutation(api.auth.acceptInvite, {
+        token: invite.token,
+        email: `multi-3-${nonce}@example.test`,
+        name: "Admin Multi 3",
+        password
+      })
+    ).rejects.toThrow(/invitation/);
   });
 });
 

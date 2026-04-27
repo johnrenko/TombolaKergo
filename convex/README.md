@@ -6,7 +6,7 @@ Ce dossier contient une base backend Convex pour la tombola :
 - `raffles.ts` : création, listing et transitions d'état.
 - `prizes.ts` : gestion des lots.
 - `winners.ts` : tirage aléatoire et consultation des résultats.
-- `auth.ts` : login admin, liens d’invitation à usage unique, sessions et historique.
+- `auth.ts` : login admin, liens d’invitation limités en nombre de comptes, sessions et historique.
 
 ## Démarrage
 

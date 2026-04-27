@@ -18,8 +18,7 @@ function inviteErrorMessage(error: unknown) {
 
 export default function InvitesPage() {
   const createInvite = useMutation(api.auth.createInvite);
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
+  const [maxUses, setMaxUses] = useState(1);
   const [inviteUrl, setInviteUrl] = useState("");
   const [error, setError] = useState("");
 
@@ -30,8 +29,7 @@ export default function InvitesPage() {
     try {
       const invite = await createInvite({
         sessionToken: getAdminSessionToken(),
-        email: email || undefined,
-        name: name || undefined,
+        maxUses,
         expiresInHours: 24 * 7
       });
       setInviteUrl(`${window.location.origin}${invite.signupPath}`);
@@ -45,19 +43,21 @@ export default function InvitesPage() {
       <div>
         <h1 className="page-title">Invitations admin</h1>
         <p className="muted">
-          Créez un lien personnel pour inviter un administrateur. Le lien expire dans 7 jours et ne peut servir qu’une seule fois.
+          Créez un lien d’invitation admin. Le lien expire dans 7 jours et peut créer le nombre de comptes choisi.
         </p>
       </div>
       <form className="card stack" onSubmit={submit}>
         {error ? <div className="error">{error}</div> : null}
         <label className="field">
-          <span className="label">Email de l’invité</span>
-          <input className="input" type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
-          <span className="muted">Optionnel. Si renseigné, seul cet email pourra utiliser le lien.</span>
-        </label>
-        <label className="field">
-          <span className="label">Nom de l’invité</span>
-          <input className="input" value={name} onChange={(event) => setName(event.target.value)} />
+          <span className="label">Nombre de comptes autorisés</span>
+          <input
+            className="input"
+            min={1}
+            step={1}
+            type="number"
+            value={maxUses}
+            onChange={(event) => setMaxUses(Math.max(1, Number.parseInt(event.target.value, 10) || 1))}
+          />
         </label>
         <button className="button primary" type="submit">
           Générer le lien
@@ -66,7 +66,7 @@ export default function InvitesPage() {
       {inviteUrl ? (
         <section className="card stack">
           <h2 className="section-title">Lien généré</h2>
-          <p className="muted">Envoyez ce lien à l’invité. Il lui permettra de choisir son mot de passe.</p>
+          <p className="muted">Envoyez ce lien aux administrateurs concernés. Chaque personne renseignera ses informations et son mot de passe.</p>
           <input className="input" readOnly value={inviteUrl} onFocus={(event) => event.currentTarget.select()} />
           <button className="button secondary" type="button" onClick={() => navigator.clipboard.writeText(inviteUrl)}>
             Copier

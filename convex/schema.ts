@@ -35,6 +35,8 @@ export default defineSchema({
     tokenHash: v.string(),
     email: v.optional(v.string()),
     name: v.optional(v.string()),
+    maxUses: v.optional(v.number()),
+    usedCount: v.optional(v.number()),
     createdByUserId: v.optional(v.id("adminUsers")),
     usedByUserId: v.optional(v.id("adminUsers")),
     usedAt: v.optional(v.number()),

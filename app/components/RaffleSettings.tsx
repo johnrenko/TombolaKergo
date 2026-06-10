@@ -612,14 +612,14 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
             </label>
             <label className="field full">
               <span className="label">Numéros exclus</span>
-              <span className="field-help">Ajoutez les numéros à retirer du tirage, séparés par une virgule ou un espace.</span>
+              <span className="field-help">Ajoutez des numéros ou des plages à retirer du tirage, séparés par une virgule ou un espace.</span>
               <input
                 className="input"
                 disabled={locked}
                 inputMode="decimal"
                 value={excludedNumbers}
                 onChange={(event) => setExcludedNumbers(event.target.value)}
-                placeholder="Exemple : 12, 24, 108"
+                placeholder="Exemple : 12, 24-30, 108 à 112"
               />
               <div className="excluded-chip-row" aria-label="Numéros exclus saisis">
                 {excludedNumbersList.length > 0 ? (

@@ -440,7 +440,7 @@ export default function DrawPage({ params }: { params: Promise<{ raffleId: strin
     .map((prize: any) => ({
       prize,
       winner: winnerByPrizeId.get(prize._id),
-      status: winnerByPrizeId.has(prize._id) ? ("given" as const) : ("pending" as const)
+      status: winnerByPrizeId.get(prize._id)?.distributedAt ? ("given" as const) : ("pending" as const)
     }));
   const givenCount = printablePrizeRows.filter((row) => row.status === "given").length;
   const presentationRows = orderedWinnersWithPrizes(prizes, winners);

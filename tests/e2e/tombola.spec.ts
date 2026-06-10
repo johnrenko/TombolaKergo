@@ -282,7 +282,7 @@ test.describe("parcours admin", () => {
     await expect(page.locator(".prize-icon.emoji").filter({ hasText: "🎁" })).toBeVisible();
   });
 
-  test("tirage, verrouillage, publication et audit", async ({ page }) => {
+  test("tirage, verrouillage, publication, archivage et audit", async ({ page }) => {
     const title = `E2E publication ${Date.now()}`;
     await createRaffle(page, title);
     await expect(page.getByText("Aucun résultat pour le moment.")).toBeVisible();
@@ -315,10 +315,19 @@ test.describe("parcours admin", () => {
     await page.getByRole("button", { name: /Publier les résultats/ }).click();
     await expect(page.getByText("Résultats publiés")).toBeVisible();
     await expect(page.getByRole("button", { name: /Lancer le tirage/ })).toHaveCount(0);
+    await page.getByRole("button", { name: "Archiver la tombola" }).click();
+    await expect(page.getByText("Tombola archivée")).toBeVisible();
+
+    await page.getByRole("link", { name: "Tombolas" }).click();
+    await expect(page.getByRole("row").filter({ hasText: title })).toHaveCount(0);
+    await page.getByLabel("Afficher les archivées").check();
+    await expect(page.getByRole("row").filter({ hasText: title })).toBeVisible();
+    await expect(page.getByRole("row").filter({ hasText: title }).getByText("Archivée")).toBeVisible();
 
     await page.getByRole("link", { name: "Historique" }).click();
     await expect(page.getByText("raffle.drawn").first()).toBeVisible();
     await expect(page.getByText("raffle.published").first()).toBeVisible();
+    await expect(page.getByText("raffle.archived").first()).toBeVisible();
   });
 
   test("mode tirage lance le tirage, révèle les lots et permet de rejouer", async ({ page }) => {

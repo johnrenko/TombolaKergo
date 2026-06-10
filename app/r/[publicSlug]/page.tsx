@@ -56,6 +56,7 @@ export default function PublicRafflePage({ params }: { params: Promise<{ publicS
 
   const { raffle } = publicRaffle;
   const published = raffle.status === "published";
+  const archived = raffle.status === "archived";
   const contactEmail = raffle.contactEmail ?? "contact@kermesse.com";
   const contactPhone = raffle.contactPhone;
   const contactLabel = contactPhone ? `${contactEmail} ou ${contactPhone}` : contactEmail;
@@ -86,7 +87,7 @@ export default function PublicRafflePage({ params }: { params: Promise<{ publicS
           </div>
 
         {!published ? (
-          <div className="notice">Les résultats ne sont pas encore publiés.</div>
+          <div className="notice">{archived ? "Cette tombola est archivée." : "Les résultats ne sont pas encore publiés."}</div>
         ) : !raffle.allowNumberLookup ? (
           <div className="notice">La recherche par numéro n’est pas activée pour cette tombola.</div>
         ) : (

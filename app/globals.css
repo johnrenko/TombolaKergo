@@ -383,6 +383,17 @@ code {
   color: var(--success);
 }
 
+.badge.archived {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.list-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
 .notice,
 .error,
 .success {

@@ -293,6 +293,7 @@ export default function DrawPage({ params }: { params: Promise<{ raffleId: strin
   ) as any;
   const runDraw = useMutation(api.winners.runDraw);
   const publishRaffle = useMutation(api.raffles.publishRaffle);
+  const archiveRaffle = useMutation(api.raffles.archiveRaffle);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [resultSort, setResultSort] = useState<ResultSort>("lot");
@@ -400,6 +401,18 @@ export default function DrawPage({ params }: { params: Promise<{ raffleId: strin
     setPresentationActive(false);
     setPresentationPending(false);
     setConfirmPresentation(false);
+  }
+
+  async function archive() {
+    setError("");
+    setBusy(true);
+    try {
+      await archiveRaffle({ raffleId: typedRaffleId, sessionToken: getAdminSessionToken() });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Impossible d’archiver la tombola.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function publish() {
@@ -637,6 +650,20 @@ export default function DrawPage({ params }: { params: Promise<{ raffleId: strin
       ) : null}
 
       {raffle.status === "published" ? <div className="success">Résultats publiés le {formatDate(raffle.publishedAt)}.</div> : null}
+
+      {raffle.status === "archived" ? (
+        <div className="notice">Tombola archivée le {formatDate(raffle.archivedAt)}. Elle est masquée de la liste par défaut.</div>
+      ) : null}
+
+      {(raffle.status === "drawn" || raffle.status === "published") ? (
+        <section className="card stack">
+          <h2 className="section-title">Archivage</h2>
+          <p className="muted">Masquer cette tombola de la liste par défaut une fois le tirage complété.</p>
+          <button className="button secondary" disabled={busy} onClick={archive} type="button">
+            {busy ? "Archivage…" : "Archiver la tombola"}
+          </button>
+        </section>
+      ) : null}
 
       <section className="card stack printable-prize-card">
         <div className="card-header">

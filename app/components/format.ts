@@ -6,11 +6,14 @@ export function formatDate(timestamp?: number) {
   }).format(new Date(timestamp));
 }
 
-export function statusLabel(status: "draft" | "drawn" | "published") {
+export type RaffleStatus = "draft" | "drawn" | "published" | "archived";
+
+export function statusLabel(status: RaffleStatus) {
   return {
     draft: "Brouillon",
     drawn: "Tirée",
-    published: "Publiée"
+    published: "Publiée",
+    archived: "Archivée"
   }[status];
 }
 

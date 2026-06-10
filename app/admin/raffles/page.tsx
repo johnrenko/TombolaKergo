@@ -9,7 +9,11 @@ import { formatDate, statusLabel } from "../../components/format";
 
 export default function RafflesPage() {
   const [sessionToken, setSessionToken] = useState("");
-  const raffles = useQuery(api.raffles.listRaffles, sessionToken ? { sessionToken } : "skip") as any[] | undefined;
+  const [showArchived, setShowArchived] = useState(false);
+  const raffles = useQuery(
+    api.raffles.listRaffles,
+    sessionToken ? { sessionToken, includeArchived: showArchived } : "skip"
+  ) as any[] | undefined;
 
   useEffect(() => {
     setSessionToken(getAdminSessionToken());
@@ -29,12 +33,27 @@ export default function RafflesPage() {
       </div>
 
       <section className="card">
+        <div className="list-toolbar">
+          <label className="distribution-switch">
+            <input
+              checked={showArchived}
+              className="switch"
+              type="checkbox"
+              onChange={(event) => setShowArchived(event.target.checked)}
+            />
+            <span>Afficher les archivées</span>
+          </label>
+        </div>
         {!raffles ? (
           <p className="muted">Chargement…</p>
         ) : raffles.length === 0 ? (
           <div className="stack">
-            <h2 className="section-title">Aucune tombola</h2>
-            <p className="muted">Commencez par créer une tombola avec une plage de numéros et au moins un lot.</p>
+            <h2 className="section-title">{showArchived ? "Aucune tombola" : "Aucune tombola active"}</h2>
+            <p className="muted">
+              {showArchived
+                ? "Commencez par créer une tombola avec une plage de numéros et au moins un lot."
+                : "Les tombolas archivées sont masquées par défaut."}
+            </p>
             <Link className="button primary" href="/admin/raffles/new">
               Créer une tombola
             </Link>
@@ -52,6 +71,7 @@ export default function RafflesPage() {
                     <th>Créée</th>
                     <th>Tirage</th>
                     <th>Publication</th>
+                    <th>Archivage</th>
                     <th>Action</th>
                   </tr>
                 </thead>
@@ -73,6 +93,7 @@ export default function RafflesPage() {
                       <td>{formatDate(raffle.createdAt)}</td>
                       <td>{formatDate(raffle.drawnAt)}</td>
                       <td>{formatDate(raffle.publishedAt)}</td>
+                      <td>{formatDate(raffle.archivedAt)}</td>
                       <td>
                         <div className="table-actions">
                           <Link className="button secondary" href={`/admin/raffles/${raffle._id}/settings`}>
@@ -122,6 +143,10 @@ export default function RafflesPage() {
                     <div>
                       <dt>Publication</dt>
                       <dd>{formatDate(raffle.publishedAt)}</dd>
+                    </div>
+                    <div>
+                      <dt>Archivage</dt>
+                      <dd>{formatDate(raffle.archivedAt)}</dd>
                     </div>
                   </dl>
                   <div className="raffle-mobile-actions">

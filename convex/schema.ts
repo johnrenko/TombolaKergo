@@ -1,7 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
-const status = v.union(v.literal("draft"), v.literal("drawn"), v.literal("published"));
+const status = v.union(v.literal("draft"), v.literal("drawn"), v.literal("published"), v.literal("archived"));
 
 export default defineSchema({
   raffles: defineTable({
@@ -17,6 +17,7 @@ export default defineSchema({
     allowNumberLookup: v.boolean(),
     drawnAt: v.optional(v.number()),
     publishedAt: v.optional(v.number()),
+    archivedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number()
   })

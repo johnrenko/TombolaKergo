@@ -11,6 +11,9 @@ const prizeInput = v.object({
   position: v.number()
 });
 
+const activeRaffleStatuses = ["draft", "drawn", "published"] as const;
+const allRaffleStatuses = [...activeRaffleStatuses, "archived"] as const;
+
 const defaultPrizeEmoji = "🎁";
 
 function normalizeEmoji(value?: string) {
@@ -91,10 +94,20 @@ async function getWinners(ctx: DbCtx, raffleId: Id<"raffles">) {
 }
 
 export const listRaffles = query({
-  args: { sessionToken: v.string() },
-  handler: async (ctx, { sessionToken }) => {
+  args: { sessionToken: v.string(), includeArchived: v.optional(v.boolean()) },
+  handler: async (ctx, { sessionToken, includeArchived }) => {
     await requireAdmin(ctx, sessionToken);
-    const raffles = await ctx.db.query("raffles").collect();
+    const statuses = includeArchived ? allRaffleStatuses : activeRaffleStatuses;
+    const raffles = (
+      await Promise.all(
+        statuses.map((status) =>
+          ctx.db
+            .query("raffles")
+            .withIndex("by_status", (q) => q.eq("status", status))
+            .collect()
+        )
+      )
+    ).flat();
     const rows = await Promise.all(
       raffles.map(async (raffle) => {
         const prizes = await getPrizes(ctx, raffle._id);
@@ -324,6 +337,36 @@ export const publishRaffle = mutation({
       entityType: "raffle",
       entityId: raffleId,
       summary: `${actor.email} a publié les résultats de "${raffle.title}".`
+    });
+  }
+});
+
+export const archiveRaffle = mutation({
+  args: { raffleId: v.id("raffles"), sessionToken: v.string() },
+  handler: async (ctx, { raffleId, sessionToken }) => {
+    const actor = await requireAdminSession(ctx, sessionToken);
+    const raffle = await ctx.db.get(raffleId);
+    if (!raffle) {
+      throw new Error("Tombola introuvable.");
+    }
+    if (raffle.status === "draft") {
+      throw new Error("La tombola doit être tirée avant archivage.");
+    }
+    if (raffle.status === "archived") {
+      return;
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(raffleId, {
+      status: "archived",
+      archivedAt: now,
+      updatedAt: now
+    });
+    await writeAudit(ctx, actor, {
+      action: "raffle.archived",
+      entityType: "raffle",
+      entityId: raffleId,
+      summary: `${actor.email} a archivé la tombola "${raffle.title}".`
     });
   }
 });

@@ -319,7 +319,7 @@ export function RaffleSettings({ mode, raffleId }: { mode: "create" | "edit"; ra
   const saveButtonBarRef = useRef<HTMLDivElement>(null);
 
   const raffle = adminRaffle?.raffle;
-  const locked = raffle?.status === "drawn" || raffle?.status === "published";
+  const locked = raffle?.status === "drawn" || raffle?.status === "published" || raffle?.status === "archived";
 
   useEffect(() => {
     setSessionToken(getAdminSessionToken());

@@ -295,8 +295,17 @@ test.describe("parcours admin", () => {
     await page.getByRole("button", { name: /Lancer le tirage/ }).click();
     await expect(page.getByRole("button", { name: /Publier les résultats/ })).toBeVisible();
     await expect(page.locator(".result-row")).toHaveCount(3);
-    await expect(printablePrizeList.locator(".give-status.given")).toHaveCount(3);
+    await expect(printablePrizeList.locator(".give-status.pending")).toHaveCount(3);
     await expect(printablePrizeList.locator("tbody tr").first().locator("td").nth(3)).not.toHaveText("—");
+
+    await page.getByRole("link", { name: "Distribution" }).click();
+    const firstDistributionRow = page.locator(".distribution-row").first();
+    await expect(firstDistributionRow.locator(".pending-badge")).toContainText("À remettre");
+    await firstDistributionRow.getByRole("button", { name: "Marquer distribué" }).click();
+    await expect(firstDistributionRow.locator(".distributed-badge")).toContainText("Distribué");
+
+    await page.getByRole("link", { name: "Tirage" }).click();
+    await expect(printablePrizeList.locator(".give-status.given")).toHaveCount(1);
 
     await page.locator("a.button", { hasText: "Paramètres" }).click();
     await expect(page.getByText("Cette tombola a déjà été tirée")).toBeVisible();

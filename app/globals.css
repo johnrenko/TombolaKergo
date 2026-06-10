@@ -1491,6 +1491,99 @@ code {
   }
 }
 
+
+.print-prize-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.print-prize-summary span {
+  background: #f7f8fc;
+  border: 1px solid #e7eaf3;
+  border-radius: 999px;
+  color: #66708a;
+  display: inline-flex;
+  gap: 6px;
+  padding: 8px 12px;
+}
+
+.print-prize-summary strong {
+  color: var(--foreground);
+}
+
+.print-prize-name {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.give-status {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 6px 10px;
+}
+
+.give-status.given {
+  background: #ecfdf3;
+  color: var(--success);
+}
+
+.give-status.pending {
+  background: #fff7ed;
+  color: var(--warning);
+}
+
+@media print {
+  body {
+    background: white;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .printable-prize-card,
+  .printable-prize-card * {
+    visibility: visible;
+  }
+
+  .printable-prize-card {
+    border: 0;
+    box-shadow: none;
+    left: 0;
+    padding: 0;
+    position: absolute;
+    top: 0;
+    width: 100%;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-table-wrap {
+    overflow: visible;
+  }
+
+  .print-prize-table {
+    min-width: 0;
+  }
+
+  .print-prize-table th,
+  .print-prize-table td {
+    border-color: #cfd5e3;
+    padding: 9px 7px;
+  }
+
+  .give-status {
+    border: 1px solid currentColor;
+    background: white !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tirage-stage.lot .tirage-prize,
   .tirage-stage.burst .tirage-prize,

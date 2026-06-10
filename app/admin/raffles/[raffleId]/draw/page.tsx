@@ -11,6 +11,7 @@ import { getAdminSessionToken } from "../../../../components/adminSession";
 import { formatDate, statusLabel } from "../../../../components/format";
 
 type ResultSort = "lot" | "ticket";
+type PrizePrintStatus = "pending" | "given";
 type DrawSpeed = "fast" | "normal" | "slow";
 type PresentationPhase = "lot" | "burst" | "number" | "summary";
 
@@ -35,6 +36,10 @@ function durationForPhase(phase: PresentationPhase, speed: DrawSpeed, totalRows:
     return 620;
   }
   return phase === "lot" ? speedDurations[speed] : phase === "burst" ? 520 : 1250;
+}
+
+function givenStatusLabel(status: PrizePrintStatus) {
+  return status === "given" ? "Déjà donné" : "Pas encore donné";
 }
 
 function orderedWinnersWithPrizes(prizes: any[], winners: any[]) {
@@ -429,6 +434,15 @@ export default function DrawPage({ params }: { params: Promise<{ raffleId: strin
 
   const { raffle, prizes, winners } = adminRaffle;
   const prizeById = new Map<string, any>(prizes.map((prize: any) => [prize._id, prize]));
+  const winnerByPrizeId = new Map<string, any>(winners.map((winner: any) => [winner.prizeId, winner]));
+  const printablePrizeRows = [...prizes]
+    .sort((a: any, b: any) => a.position - b.position)
+    .map((prize: any) => ({
+      prize,
+      winner: winnerByPrizeId.get(prize._id),
+      status: winnerByPrizeId.has(prize._id) ? ("given" as const) : ("pending" as const)
+    }));
+  const givenCount = printablePrizeRows.filter((row) => row.status === "given").length;
   const presentationRows = orderedWinnersWithPrizes(prizes, winners);
   const canUsePresentation = raffle.status === "draft" || (raffle.status === "drawn" && winners.length > 0);
   const sortedWinners = [...winners].sort((a, b) => {
@@ -437,6 +451,10 @@ export default function DrawPage({ params }: { params: Promise<{ raffleId: strin
     }
     return a.position - b.position;
   });
+
+  function printPrizeList() {
+    window.print();
+  }
 
   return (
     <main className="content stack">
@@ -619,6 +637,66 @@ export default function DrawPage({ params }: { params: Promise<{ raffleId: strin
       ) : null}
 
       {raffle.status === "published" ? <div className="success">Résultats publiés le {formatDate(raffle.publishedAt)}.</div> : null}
+
+      <section className="card stack printable-prize-card">
+        <div className="card-header">
+          <div>
+            <h2 className="section-title">Liste des lots à imprimer</h2>
+            <p className="muted">Suivez les lots déjà donnés aux gagnants et imprimez la liste pour l’équipe admin.</p>
+          </div>
+          <button className="button secondary no-print" type="button" onClick={printPrizeList}>
+            🖨 Imprimer la liste
+          </button>
+        </div>
+
+        <div className="print-prize-summary" aria-label="Résumé des lots">
+          <span>
+            <strong>{printablePrizeRows.length}</strong> lots au total
+          </span>
+          <span>
+            <strong>{givenCount}</strong> déjà donnés
+          </span>
+          <span>
+            <strong>{printablePrizeRows.length - givenCount}</strong> à donner
+          </span>
+        </div>
+
+        {printablePrizeRows.length === 0 ? (
+          <p className="muted">Aucun lot configuré pour cette tombola.</p>
+        ) : (
+          <div className="table-wrap print-table-wrap">
+            <table className="table print-prize-table">
+              <thead>
+                <tr>
+                  <th>Lot</th>
+                  <th>Nom</th>
+                  <th>Statut</th>
+                  <th>Numéro gagnant</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                {printablePrizeRows.map(({ prize, winner, status }) => (
+                  <tr key={prize._id}>
+                    <td>#{prize.position}</td>
+                    <td>
+                      <span className="print-prize-name">
+                        <span aria-hidden="true">{prize.emoji ?? "🎁"}</span>
+                        <strong>{prize.name}</strong>
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`give-status ${status}`}>{givenStatusLabel(status)}</span>
+                    </td>
+                    <td>{winner ? winner.winningNumber : "—"}</td>
+                    <td>{prize.description || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       <section className="card">
         <div className="card-header">

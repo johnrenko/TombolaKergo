@@ -91,6 +91,9 @@ export default defineSchema({
     prizeId: v.id("prizes"),
     winningNumber: v.number(),
     position: v.number(),
+    distributedAt: v.optional(v.number()),
+    distributedByUserId: v.optional(v.id("adminUsers")),
+    distributedByEmail: v.optional(v.string()),
     createdAt: v.number()
   })
     .index("by_raffle", ["raffleId"])

@@ -74,9 +74,16 @@ export default function RafflesPage() {
                       <td>{formatDate(raffle.drawnAt)}</td>
                       <td>{formatDate(raffle.publishedAt)}</td>
                       <td>
-                        <Link className="button secondary" href={`/admin/raffles/${raffle._id}/settings`}>
-                          Ouvrir
-                        </Link>
+                        <div className="table-actions">
+                          <Link className="button secondary" href={`/admin/raffles/${raffle._id}/settings`}>
+                            Ouvrir
+                          </Link>
+                          {raffle.status !== "draft" ? (
+                            <Link className="button ghost" href={`/admin/raffles/${raffle._id}/distribution`}>
+                              Distribution
+                            </Link>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -117,9 +124,16 @@ export default function RafflesPage() {
                       <dd>{formatDate(raffle.publishedAt)}</dd>
                     </div>
                   </dl>
-                  <Link className="button secondary" href={`/admin/raffles/${raffle._id}/settings`}>
-                    Ouvrir
-                  </Link>
+                  <div className="raffle-mobile-actions">
+                    <Link className="button secondary" href={`/admin/raffles/${raffle._id}/settings`}>
+                      Ouvrir
+                    </Link>
+                    {raffle.status !== "draft" ? (
+                      <Link className="button ghost" href={`/admin/raffles/${raffle._id}/distribution`}>
+                        Distribution
+                      </Link>
+                    ) : null}
+                  </div>
                 </article>
               ))}
             </div>

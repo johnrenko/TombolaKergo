@@ -286,10 +286,17 @@ test.describe("parcours admin", () => {
     const title = `E2E publication ${Date.now()}`;
     await createRaffle(page, title);
     await expect(page.getByText("Aucun résultat pour le moment.")).toBeVisible();
+    const printablePrizeList = page.locator(".printable-prize-card");
+    await expect(printablePrizeList.getByRole("heading", { name: "Liste des lots à imprimer" })).toBeVisible();
+    await expect(printablePrizeList.getByRole("button", { name: "🖨 Imprimer la liste" })).toBeEnabled();
+    await expect(printablePrizeList.locator("tbody tr")).toHaveCount(3);
+    await expect(printablePrizeList.locator(".give-status.pending")).toHaveCount(3);
 
     await page.getByRole("button", { name: /Lancer le tirage/ }).click();
     await expect(page.getByRole("button", { name: /Publier les résultats/ })).toBeVisible();
     await expect(page.locator(".result-row")).toHaveCount(3);
+    await expect(printablePrizeList.locator(".give-status.given")).toHaveCount(3);
+    await expect(printablePrizeList.locator("tbody tr").first().locator("td").nth(3)).not.toHaveText("—");
 
     await page.locator("a.button", { hasText: "Paramètres" }).click();
     await expect(page.getByText("Cette tombola a déjà été tirée")).toBeVisible();

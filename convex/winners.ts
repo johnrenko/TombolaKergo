@@ -135,6 +135,53 @@ export const listWinnersByRaffle = query({
   }
 });
 
+export const markDistributed = mutation({
+  args: { winnerId: v.id("winners"), sessionToken: v.string() },
+  handler: async (ctx, { winnerId, sessionToken }) => {
+    const actor = await requireAdminSession(ctx, sessionToken);
+    const winner = await ctx.db.get(winnerId);
+    if (!winner) {
+      throw new Error("Résultat introuvable.");
+    }
+
+    if (winner.distributedAt) {
+      return {
+        status: "already_distributed" as const,
+        distributedAt: winner.distributedAt,
+        distributedByEmail: winner.distributedByEmail
+      };
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(winnerId, {
+      distributedAt: now,
+      distributedByUserId: actor._id,
+      distributedByEmail: actor.email
+    });
+
+    const prize = await ctx.db.get(winner.prizeId);
+    await writeAudit(ctx, actor, {
+      action: "winner.distributed",
+      entityType: "winner",
+      entityId: winnerId,
+      summary: `${actor.email} a marqué le numéro ${winner.winningNumber} comme distribué.`,
+      metadata: {
+        raffleId: winner.raffleId,
+        prizeId: winner.prizeId,
+        prizeName: prize?.name,
+        winningNumber: winner.winningNumber,
+        position: winner.position
+      }
+    });
+
+    return {
+      status: "distributed" as const,
+      distributedAt: now,
+      distributedByEmail: actor.email
+    };
+  }
+});
+
 export const checkNumber = query({
   args: {
     publicSlug: v.string(),

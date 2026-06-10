@@ -464,6 +464,11 @@ export default function DrawPage({ params }: { params: Promise<{ raffleId: strin
           <Link className="button ghost" href={`/admin/raffles/${raffleId}/settings`}>
             Paramètres
           </Link>
+          {raffle.status !== "draft" ? (
+            <Link className="button ghost" href={`/admin/raffles/${raffleId}/distribution`}>
+              Distribution
+            </Link>
+          ) : null}
           <Link className="button secondary" href={`/r/${raffle.publicSlug}`}>
             Page publique
           </Link>

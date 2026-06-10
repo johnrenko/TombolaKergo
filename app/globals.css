@@ -1821,3 +1821,99 @@ code {
     padding: 18px;
   }
 }
+
+.table-actions,
+.raffle-mobile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.table-actions .button,
+.raffle-mobile-actions .button {
+  min-height: 38px;
+}
+
+.distribution-content {
+  max-width: 1040px;
+}
+
+.distribution-toolbar {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(220px, 1fr) 180px 180px;
+}
+
+.distribution-list {
+  display: grid;
+  gap: 10px;
+}
+
+.distribution-row {
+  align-items: center;
+  border: 1px solid #e7eaf3;
+  border-radius: 10px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 34px 100px 42px minmax(160px, 1fr) minmax(180px, 0.8fr) auto;
+  min-height: 74px;
+  padding: 12px 14px;
+}
+
+.distribution-row.distributed {
+  background: #fbfcff;
+}
+
+.distribution-row .number-strong {
+  display: block;
+  line-height: 1;
+}
+
+.distribution-prize,
+.distribution-status {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.distribution-prize span,
+.distribution-status small {
+  overflow-wrap: anywhere;
+}
+
+.distributed-badge {
+  background: #ecfdf3;
+  color: var(--success);
+  justify-self: start;
+}
+
+.pending-badge {
+  background: #fff7ed;
+  color: var(--warning);
+  justify-self: start;
+}
+
+@media (max-width: 860px) {
+  .raffle-mobile-actions {
+    display: grid;
+  }
+
+  .distribution-toolbar,
+  .distribution-row {
+    grid-template-columns: 1fr;
+  }
+
+  .distribution-row {
+    align-items: stretch;
+  }
+
+  .distribution-row .rank-dot,
+  .distribution-row .prize-icon {
+    justify-self: start;
+  }
+
+  .distribution-row .button {
+    width: 100%;
+  }
+}
